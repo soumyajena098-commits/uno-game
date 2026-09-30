@@ -1,0 +1,15 @@
+{
+  "name": "uno-multiplayer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Full-stack real-time multiplayer UNO web application (React + Node.js + Socket.IO)",
+  "scripts": {
+    "install:server": "npm install --prefix server",
+    "install:client": "npm install --prefix client",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build": "npm run build --prefix client",
+    "start": "npm start --prefix server",
+    "test": "node server/src/test-engine.js"
+  }
+}

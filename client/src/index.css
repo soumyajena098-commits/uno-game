@@ -1,0 +1,176 @@
+@import "tailwindcss";
+
+:root {
+  /* Part 8 Fluid Relative Sizing Tokens (Zero fixed px layout sizes) */
+  --card-size: clamp(50px, 8.2vmin, 104px);
+  --card-center-size: clamp(56px, 9.2vmin, 114px);
+  --card-sm-size: clamp(36px, 5.8vmin, 66px);
+  --opp-card-width: clamp(26px, 4.2vmin, 42px);
+  --avatar-size: clamp(40px, 6.6vmin, 76px);
+  --fab-size: clamp(44px, 6vmin, 56px);
+  --gap: clamp(4px, 1.1vmin, 16px);
+  --arena-width: clamp(248px, 42vmin, 390px);
+  --arena-height: clamp(212px, 35vmin, 330px);
+  --font-xs: clamp(9px, 0.95vmin, 12px);
+  --font-sm: clamp(10px, 1.1vmin, 14px);
+  --font-md: clamp(12px, 1.3vmin, 16px);
+  --font-lg: clamp(14px, 1.6vmin, 20px);
+}
+
+/* Breakpoint Tuning: Small Phones (< 480px) */
+@media (max-width: 479px) {
+  :root {
+    --card-size: clamp(48px, 14.5vw, 66px);
+    --card-center-size: clamp(52px, 15.5vw, 72px);
+    --avatar-size: clamp(38px, 10.5vw, 48px);
+    --arena-width: clamp(236px, 78vw, 296px);
+    --arena-height: clamp(196px, 58vw, 244px);
+  }
+}
+
+/* Breakpoint Tuning: Mobile Landscape (Short Viewport Height) */
+@media (orientation: landscape) and (max-height: 560px) {
+  :root {
+    --card-size: clamp(44px, 11.5vh, 68px);
+    --card-center-size: clamp(48px, 12.5vh, 74px);
+    --avatar-size: clamp(36px, 9.5vh, 50px);
+    --arena-width: clamp(220px, 44vh, 290px);
+    --arena-height: clamp(175px, 36vh, 230px);
+  }
+}
+
+/* Breakpoint Tuning: Large Desktops (>= 1440px) */
+@media (min-width: 1440px) {
+  :root {
+    --card-size: clamp(72px, 6.2vw, 104px);
+    --card-center-size: clamp(80px, 6.8vw, 114px);
+    --avatar-size: clamp(54px, 4.4vw, 78px);
+  }
+}
+
+@layer base {
+  html,
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%);
+    width: 100%;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: 'Fredoka', system-ui, sans-serif;
+  }
+}
+
+/* Safe-Area Viewport Container (Respects mobile notches & home indicator bars) */
+.uno-safe-viewport {
+  width: 100vw;
+  height: 100dvh;
+  padding-top: max(0.8vh, env(safe-area-inset-top, 0px));
+  padding-bottom: max(0.8vh, env(safe-area-inset-bottom, 0px));
+  padding-left: max(1.5vw, env(safe-area-inset-left, 0px));
+  padding-right: max(1.5vw, env(safe-area-inset-right, 0px));
+}
+
+/*
+ * Part 8 Rule 2: CSS Grid Game Table with Named Areas
+ * Automatically adapts across Portrait Mobile, Landscape Mobile, Tablet, Laptop, and Desktop.
+ */
+.uno-table-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  gap: var(--gap);
+  grid-template-columns: minmax(auto, 1fr) minmax(0, 2.8fr) minmax(auto, 1fr);
+  grid-template-rows: auto 1fr auto;
+  grid-template-areas:
+    "top-left    top-center    top-right"
+    "mid-left    center        mid-right"
+    "bottom-left hand          bottom-right";
+  align-items: center;
+  justify-items: center;
+}
+
+/* Portrait Mobile (< 768px portrait): Stack opponents cleanly above center arena, scrollable hand below */
+@media (max-width: 767px) and (orientation: portrait) {
+  .uno-table-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr auto;
+    grid-template-areas:
+      "top-left    top-right"
+      "mid-left    mid-right"
+      "center      center"
+      "hand        hand";
+  }
+}
+
+.grid-area-top-left {
+  grid-area: top-left;
+}
+.grid-area-top-center {
+  grid-area: top-center;
+}
+.grid-area-top-right {
+  grid-area: top-right;
+}
+.grid-area-mid-left {
+  grid-area: mid-left;
+}
+.grid-area-center {
+  grid-area: center;
+}
+.grid-area-mid-right {
+  grid-area: mid-right;
+}
+.grid-area-hand {
+  grid-area: hand;
+  width: 100%;
+}
+
+/* Aspect-ratio locked UNO card (2:3 standard card proportion at every screen size) */
+.uno-card-fluid {
+  aspect-ratio: 2 / 3;
+  flex: 0 0 auto;
+  touch-action: manipulation;
+}
+
+/* Hover-lift only on true hover devices (PC/Mouse) per Part 8 Rule 9 */
+@media (hover: hover) and (pointer: fine) {
+  .uno-card-hover-lift:hover {
+    transform: translateY(-1.4vh) scale(1.06) !important;
+    z-index: 40 !important;
+  }
+}
+
+/* Touch devices minimum 44x44px tap target guarantee */
+.uno-tap-target {
+  min-width: max(44px, var(--fab-size));
+  min-height: max(44px, var(--fab-size));
+  touch-action: manipulation;
+}
+
+/* Custom scrollbar for player hand tray */
+.hand-scroll {
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+.hand-scroll::-webkit-scrollbar {
+  height: 0.45vh;
+}
+.hand-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 9999px;
+}
+.hand-scroll::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+.hand-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(248, 113, 113, 0.7);
+}

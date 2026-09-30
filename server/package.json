@@ -1,0 +1,19 @@
+{
+  "name": "uno-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Real-time Socket.IO backend and authoritative rule engine for Multiplayer UNO",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "test": "node src/test-engine.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "mongoose": "^8.5.1",
+    "socket.io": "^4.7.5"
+  }
+}
