@@ -2,9 +2,9 @@
 
 :root {
   /* Part 8 Fluid Relative Sizing Tokens (Zero fixed px layout sizes) */
-  --card-size: clamp(50px, 8.2vmin, 104px);
+  --card-size: clamp(52px, 8.5vmin, 104px);
   --card-center-size: clamp(56px, 9.2vmin, 114px);
-  --card-sm-size: clamp(36px, 5.8vmin, 66px);
+  --card-sm-size: clamp(38px, 6vmin, 68px);
   --opp-card-width: clamp(26px, 4.2vmin, 42px);
   --avatar-size: clamp(40px, 6.6vmin, 76px);
   --fab-size: clamp(44px, 6vmin, 56px);
@@ -20,11 +20,12 @@
 /* Breakpoint Tuning: Small Phones (< 480px) */
 @media (max-width: 479px) {
   :root {
-    --card-size: clamp(48px, 14.5vw, 66px);
-    --card-center-size: clamp(52px, 15.5vw, 72px);
-    --avatar-size: clamp(38px, 10.5vw, 48px);
-    --arena-width: clamp(236px, 78vw, 296px);
-    --arena-height: clamp(196px, 58vw, 244px);
+    --card-size: clamp(48px, 14.5vw, 68px);
+    --card-center-size: clamp(54px, 16vw, 76px);
+    --card-sm-size: clamp(34px, 10vw, 48px);
+    --avatar-size: clamp(36px, 10vw, 44px);
+    --arena-width: clamp(220px, 80vw, 290px);
+    --arena-height: clamp(170px, 50vw, 220px);
   }
 }
 
@@ -33,9 +34,10 @@
   :root {
     --card-size: clamp(44px, 11.5vh, 68px);
     --card-center-size: clamp(48px, 12.5vh, 74px);
-    --avatar-size: clamp(36px, 9.5vh, 50px);
-    --arena-width: clamp(220px, 44vh, 290px);
-    --arena-height: clamp(175px, 36vh, 230px);
+    --card-sm-size: clamp(32px, 8vh, 48px);
+    --avatar-size: clamp(34px, 9vh, 48px);
+    --arena-width: clamp(210px, 42vh, 280px);
+    --arena-height: clamp(155px, 32vh, 210px);
   }
 }
 
@@ -54,8 +56,13 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%);
     width: 100%;
+    height: 100%;
     min-height: 100dvh;
-    overflow-x: hidden;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -71,15 +78,20 @@
 .uno-safe-viewport {
   width: 100vw;
   height: 100dvh;
-  padding-top: max(0.8vh, env(safe-area-inset-top, 0px));
-  padding-bottom: max(0.8vh, env(safe-area-inset-bottom, 0px));
+  overflow: hidden;
+  overscroll-behavior: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-top: max(0.5vh, env(safe-area-inset-top, 0px));
+  padding-bottom: max(0.5vh, env(safe-area-inset-bottom, 0px));
   padding-left: max(1.5vw, env(safe-area-inset-left, 0px));
   padding-right: max(1.5vw, env(safe-area-inset-right, 0px));
 }
 
 /*
  * Part 8 Rule 2: CSS Grid Game Table with Named Areas
- * Automatically adapts across Portrait Mobile, Landscape Mobile, Tablet, Laptop, and Desktop.
+ * Automatically adapts across Desktop, Laptop, and Landscape Mobile.
  */
 .uno-table-grid {
   display: grid;
@@ -95,19 +107,6 @@
     "bottom-left hand          bottom-right";
   align-items: center;
   justify-items: center;
-}
-
-/* Portrait Mobile (< 768px portrait): Stack opponents cleanly above center arena, scrollable hand below */
-@media (max-width: 767px) and (orientation: portrait) {
-  .uno-table-grid {
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto 1fr auto;
-    grid-template-areas:
-      "top-left    top-right"
-      "mid-left    mid-right"
-      "center      center"
-      "hand        hand";
-  }
 }
 
 .grid-area-top-left {
@@ -161,7 +160,7 @@
   -webkit-overflow-scrolling: touch;
 }
 .hand-scroll::-webkit-scrollbar {
-  height: 0.45vh;
+  height: 0.35vh;
 }
 .hand-scroll::-webkit-scrollbar-track {
   background: rgba(15, 23, 42, 0.4);
@@ -173,4 +172,31 @@
 }
 .hand-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(248, 113, 113, 0.7);
+}
+
+/* Subtle edge fade gradient mask for horizontal hand scrolling */
+.hand-fade-mask {
+  mask-image: linear-gradient(to right, transparent 0%, black 14px, black calc(100% - 14px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 14px, black calc(100% - 14px), transparent 100%);
+}
+
+/* Floating Stack: Music Box + Chat Drawer button */
+.uno-floating-stack {
+  position: fixed;
+  right: 2vw;
+  bottom: clamp(2vh, 4vmin, 4vh);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1.2vh;
+  z-index: 40;
+  pointer-events: none;
+}
+
+/* On Portrait Mobile: float safely on right edge above the bottom hand tray so gameplay is never obstructed */
+@media (max-width: 767px) and (orientation: portrait) {
+  .uno-floating-stack {
+    bottom: clamp(140px, 24vh, 190px);
+    right: 2.5vw;
+  }
 }

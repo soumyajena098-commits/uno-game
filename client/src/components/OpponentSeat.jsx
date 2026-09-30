@@ -21,19 +21,21 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
     return null;
   }
 
-  const visibleCount = Math.min(Math.max(cardCount, 1), 9);
+  const visibleCount = compact
+    ? Math.min(Math.max(cardCount, 1), 4)
+    : Math.min(Math.max(cardCount, 1), 9);
   const mid = (visibleCount - 1) / 2;
   const cardWidthToken = compact
-    ? 'clamp(22px, 3.6vmin, 36px)'
+    ? 'clamp(18px, 3.2vw, 24px)'
     : 'var(--opp-card-width)';
 
   if (orientation === 'horizontal') {
     return (
-      <div className="flex flex-row items-center justify-center select-none pointer-events-none py-[0.4vh] px-[0.5vw]">
+      <div className="flex flex-row items-center justify-center select-none pointer-events-none py-[0.2vh] px-[0.2vw]">
         {Array.from({ length: visibleCount }).map((_, i) => {
           const offset = i - mid;
-          const rotateDeg = offset * 5;
-          const archY = Math.abs(offset) * 0.25;
+          const rotateDeg = offset * (compact ? 3 : 5);
+          const archY = Math.abs(offset) * (compact ? 0.15 : 0.25);
 
           return (
             <motion.div
@@ -43,7 +45,7 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
               transition={{ delay: i * 0.035, duration: 0.2 }}
               style={{
                 width: cardWidthToken,
-                marginLeft: i === 0 ? '0' : 'clamp(-20px, -1.7vmin, -10px)',
+                marginLeft: i === 0 ? '0' : compact ? 'clamp(-13px, -2vw, -8px)' : 'clamp(-20px, -1.7vmin, -10px)',
                 transform: `translateY(${archY}vh) rotate(${rotateDeg}deg)`,
                 zIndex: i + 1,
               }}
@@ -107,6 +109,7 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
  */
 function OpponentSeatComponent({
   player,
+  variant = 'seat', // 'seat' | 'chip'
   seatPosition = 'top-center', // 'top-center' | 'top-left' | 'top-right' | 'left-edge' | 'right-edge'
   opponentCount = 3,
   isPortraitMobile = false,
@@ -313,7 +316,108 @@ function OpponentSeatComponent({
     ? 'bg-slate-900/75 border-sky-300/60 ring-1 ring-sky-300/40'
     : 'bg-slate-900/55 border-white/10';
 
-  // On portrait mobile, side stacks compress into horizontal fans beside avatars
+  // On portrait mobile (or variant="chip"): render compact horizontal opponent chip
+  if (isPortraitMobile || variant === 'chip') {
+    return (
+      <div
+        className={`flex items-center gap-1.5 px-2 py-1 rounded-2xl backdrop-blur-md border transition-all duration-300 shrink-0 ${containerRingStyle}`}
+      >
+        {/* Avatar with Turn Ring */}
+        <div className="relative flex items-center justify-center shrink-0">
+          <TurnTimer
+            variant="ring"
+            size={38}
+            strokeWidth={3}
+            isTurn={isTurn}
+            isActive={isTurn}
+            endsAt={endsAt || turnDeadline}
+            turnDeadline={turnDeadline}
+            serverNow={serverNow}
+            turnSequence={turnSequence}
+            totalTurnSeconds={totalTurnSeconds}
+          >
+            <div
+              style={{ backgroundColor: player.avatarColor || '#3b82f6' }}
+              className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-display font-black text-xs relative shadow ${
+                isTurn
+                  ? 'border-2 border-yellow-200 shadow-[0_0_12px_rgba(250,204,21,0.7)]'
+                  : isNext
+                  ? 'border border-sky-300/80 shadow-[0_0_8px_rgba(56,189,248,0.35)]'
+                  : 'border border-white/50'
+              }`}
+            >
+              {player.finished ? '🏆' : player.isBot ? '🤖' : initial}
+              {player.isHost && (
+                <span
+                  className="absolute -top-1 -left-1 bg-amber-400 text-slate-950 p-0.5 rounded-full shadow"
+                  title="Host"
+                >
+                  <Crown className="w-2 h-2" />
+                </span>
+              )}
+              {!player.finished && player.cardCount === 1 && (
+                <span
+                  className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 text-white border border-white flex items-center justify-center text-[7px]"
+                  title="UNO!"
+                >
+                  🔴
+                </span>
+              )}
+              {!player.connected && !player.isBot && (
+                <span
+                  className="absolute -bottom-1 -right-1 bg-rose-600 text-white p-0.5 rounded-full shadow"
+                  title="Disconnected"
+                >
+                  <WifiOff className="w-2 h-2" />
+                </span>
+              )}
+            </div>
+          </TurnTimer>
+        </div>
+
+        {/* Player Name & Status */}
+        <div className="flex flex-col min-w-0">
+          <span className="font-display font-bold text-xs text-white truncate max-w-[65px] sm:max-w-[85px]">
+            {player.name}
+          </span>
+          {player.finished ? (
+            <span className="text-[10px] font-bold text-emerald-400">
+              🏆 #{player.finishRank}
+            </span>
+          ) : isTurn ? (
+            <span className="text-[10px] font-black text-amber-300 uppercase tracking-tight">
+              Turn
+            </span>
+          ) : isNext ? (
+            <span className="text-[10px] font-bold text-sky-300 uppercase tracking-tight">
+              Next
+            </span>
+          ) : null}
+        </div>
+
+        {/* Mini Face-Down Card Fan */}
+        <OpponentCardFan
+          cardCount={player.cardCount}
+          orientation="horizontal"
+          compact={true}
+          finished={player.finished}
+        />
+
+        {/* Catch UNO button */}
+        {!player.finished && player.unoVulnerable && player.cardCount === 1 && (
+          <button
+            type="button"
+            onClick={() => onCatchUno(player.id)}
+            className="px-1.5 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-display font-bold text-[10px] shadow border border-white/30 cursor-pointer shrink-0"
+          >
+            ⚡ Catch
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // On desktop / landscape:
   if (seatPosition === 'left-edge' && !isPortraitMobile) {
     return (
       <div

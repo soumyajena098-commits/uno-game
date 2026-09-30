@@ -107,6 +107,23 @@ function TurnTimerComponent({
     ? '#facc15' // Yellow (10-30s)
     : '#10b981'; // Green (>30s)
 
+  if (variant === 'compact') {
+    return (
+      <div
+        className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-xs font-mono font-bold tabular-nums shadow transition-colors ${
+          isUrgent
+            ? 'bg-red-500/20 border-red-400 text-red-400 animate-pulse'
+            : isWarning
+            ? 'bg-amber-500/15 border-amber-400/60 text-amber-300'
+            : 'bg-emerald-500/15 border-emerald-400/60 text-emerald-300'
+        }`}
+      >
+        <Clock className="w-3.5 h-3.5" />
+        <span>{active ? `${remainingSeconds}s` : `${totalTurnSeconds}s`}</span>
+      </div>
+    );
+  }
+
   if (variant === 'bar') {
     const pct = Math.round(progress * 100);
     return (

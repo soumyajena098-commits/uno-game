@@ -376,15 +376,8 @@ export default function ChatDrawer({
 
   return createPortal(
     <>
-      {/* Right-Side Vertical Stack: 🎵 Music Box above 💬 Chat Button (Never overlaps) */}
-      <div
-        style={{
-          right: '2vw',
-          bottom: 'clamp(2vh, 4vmin, 4vh)',
-          gap: '1.5vh',
-        }}
-        className="fixed z-40 flex flex-col items-end pointer-events-none"
-      >
+      {/* Right-Side Vertical Stack: 🎵 Music Box above 💬 Chat Button (Never overlaps hand) */}
+      <div className="uno-floating-stack">
         {/* 1. Top of Stack: YouTube Background Music Box */}
         <MusicBox />
 

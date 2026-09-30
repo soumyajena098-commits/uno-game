@@ -65,7 +65,7 @@ function UnoCardComponent({
   const fluidWidth =
     size === 'sm'
       ? 'var(--card-sm-size)'
-      : size === 'lg'
+      : size === 'lg' || size === 'center'
       ? 'var(--card-center-size)'
       : 'var(--card-size)';
 
