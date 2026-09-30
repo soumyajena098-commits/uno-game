@@ -1,52 +1,71 @@
 @import "tailwindcss";
 
 :root {
-  /* Part 8 Fluid Relative Sizing Tokens (Zero fixed px layout sizes) */
-  --card-size: clamp(52px, 8.5vmin, 104px);
-  --card-center-size: clamp(56px, 9.2vmin, 114px);
-  --card-sm-size: clamp(38px, 6vmin, 68px);
-  --opp-card-width: clamp(26px, 4.2vmin, 42px);
-  --avatar-size: clamp(40px, 6.6vmin, 76px);
+  /* Part 13: Big, Readable Fluid Cards Across All Devices */
+  /* Mobile Hand Cards (>= 72px wide, portrait 1:1.4) */
+  --card-w: clamp(72px, 22vw, 96px);
+  --card-h: calc(var(--card-w) * 1.4);
+  --card-size: var(--card-w);
+
+  /* Center Table Discard Pile & Draw Pile (>= 84px wide) */
+  --pile-card-w: clamp(84px, 26vw, 110px);
+  --pile-card-h: calc(var(--pile-card-w) * 1.4);
+  --card-center-size: var(--pile-card-w);
+
+  /* Opponent Fans (>= 28px wide) */
+  --opp-card-w: clamp(28px, 8vw, 44px);
+  --opp-card-h: calc(var(--opp-card-w) * 1.4);
+  --opp-card-width: var(--opp-card-w);
+  --card-sm-size: var(--opp-card-w);
+
+  --avatar-size: clamp(38px, 6.2vmin, 68px);
   --fab-size: clamp(44px, 6vmin, 56px);
   --gap: clamp(4px, 1.1vmin, 16px);
-  --arena-width: clamp(248px, 42vmin, 390px);
-  --arena-height: clamp(212px, 35vmin, 330px);
+  --arena-width: clamp(250px, 44vmin, 400px);
+  --arena-height: clamp(210px, 36vmin, 340px);
   --font-xs: clamp(9px, 0.95vmin, 12px);
   --font-sm: clamp(10px, 1.1vmin, 14px);
   --font-md: clamp(12px, 1.3vmin, 16px);
   --font-lg: clamp(14px, 1.6vmin, 20px);
 }
 
-/* Breakpoint Tuning: Small Phones (< 480px) */
-@media (max-width: 479px) {
+/* Tablet (min-width: 640px) */
+@media (min-width: 640px) {
   :root {
-    --card-size: clamp(48px, 14.5vw, 68px);
-    --card-center-size: clamp(54px, 16vw, 76px);
-    --card-sm-size: clamp(34px, 10vw, 48px);
-    --avatar-size: clamp(36px, 10vw, 44px);
-    --arena-width: clamp(220px, 80vw, 290px);
-    --arena-height: clamp(170px, 50vw, 220px);
+    --card-w: clamp(80px, 12vw, 110px);
+    --card-h: calc(var(--card-w) * 1.4);
+    --pile-card-w: clamp(90px, 14vw, 120px);
+    --pile-card-h: calc(var(--pile-card-w) * 1.4);
+    --opp-card-w: clamp(32px, 5vw, 48px);
+    --opp-card-h: calc(var(--opp-card-w) * 1.4);
   }
 }
 
-/* Breakpoint Tuning: Mobile Landscape (Short Viewport Height) */
+/* Desktop (min-width: 1024px) */
+@media (min-width: 1024px) {
+  :root {
+    --card-w: clamp(90px, 8vw, 120px);
+    --card-h: calc(var(--card-w) * 1.4);
+    --pile-card-w: clamp(100px, 9vw, 130px);
+    --pile-card-h: calc(var(--pile-card-w) * 1.4);
+    --opp-card-w: clamp(36px, 3.5vw, 54px);
+    --opp-card-h: calc(var(--opp-card-w) * 1.4);
+    --avatar-size: clamp(52px, 4.4vw, 76px);
+  }
+}
+
+/* Mobile Landscape (Short Viewport Height <= 560px) */
 @media (orientation: landscape) and (max-height: 560px) {
   :root {
-    --card-size: clamp(44px, 11.5vh, 68px);
-    --card-center-size: clamp(48px, 12.5vh, 74px);
-    --card-sm-size: clamp(32px, 8vh, 48px);
-    --avatar-size: clamp(34px, 9vh, 48px);
+    --card-w: clamp(58px, 13vh, 80px);
+    --card-h: calc(var(--card-w) * 1.4);
+    --pile-card-w: clamp(66px, 15vh, 88px);
+    --pile-card-h: calc(var(--pile-card-w) * 1.4);
+    --opp-card-w: clamp(24px, 6.5vh, 36px);
+    --opp-card-h: calc(var(--opp-card-w) * 1.4);
+    --avatar-size: clamp(32px, 8.5vh, 46px);
     --arena-width: clamp(210px, 42vh, 280px);
     --arena-height: clamp(155px, 32vh, 210px);
-  }
-}
-
-/* Breakpoint Tuning: Large Desktops (>= 1440px) */
-@media (min-width: 1440px) {
-  :root {
-    --card-size: clamp(72px, 6.2vw, 104px);
-    --card-center-size: clamp(80px, 6.8vw, 114px);
-    --avatar-size: clamp(54px, 4.4vw, 78px);
   }
 }
 
@@ -232,18 +251,42 @@
   width: 100%;
 }
 
-/* Aspect-ratio locked UNO card (2:3 standard card proportion at every screen size) */
+/* Aspect-ratio locked UNO card (1 : 1.4 portrait proportion per Part 13) */
 .uno-card-fluid {
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 1 / 1.4;
   flex: 0 0 auto;
   touch-action: pan-x;
 }
 
-/* Hover-lift only on true hover devices (PC/Mouse) per Part 8 Rule 9 */
+/* Part 13 Rule 4 & 9: Hand Container Overlap & Lift Protection */
+.hand-wrapper {
+  padding-top: 16px;
+  overflow: visible;
+}
+
+.hand-card-slot {
+  flex: 0 0 auto;
+  margin-left: calc(var(--card-w) * -0.35);
+  position: relative;
+  transition: transform 0.18s ease-out, z-index 0.18s ease-out;
+  touch-action: pan-x;
+}
+
+.hand-card-slot:first-child {
+  margin-left: 0 !important;
+}
+
+/* Hover-lift: Lift card above overlapping neighbors using z-index & translateY */
+.hand-card-slot:hover,
+.hand-card-slot:focus-within {
+  transform: translateY(-12px) scale(1.05) !important;
+  z-index: 50 !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .uno-card-hover-lift:hover {
-    transform: translateY(-1.4vh) scale(1.06) !important;
-    z-index: 40 !important;
+    transform: translateY(-12px) scale(1.06) !important;
+    z-index: 50 !important;
   }
 }
 

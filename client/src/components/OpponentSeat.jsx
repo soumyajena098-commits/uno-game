@@ -21,47 +21,60 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
     return null;
   }
 
-  const visibleCount = compact
-    ? Math.min(Math.max(cardCount, 1), 4)
-    : Math.min(Math.max(cardCount, 1), 9);
+  // Part 13: Cap visible fan cards at 5, show +N badge if more
+  const maxVisible = 5;
+  const visibleCount = Math.min(Math.max(cardCount, 1), maxVisible);
+  const overflowCount = cardCount - maxVisible;
   const mid = (visibleCount - 1) / 2;
-  const cardWidthToken = compact
-    ? 'clamp(18px, 3.2vw, 24px)'
-    : 'var(--opp-card-width)';
+  const cardWidthToken = 'var(--opp-card-w)';
 
   if (orientation === 'horizontal') {
     return (
-      <div className="flex flex-row items-center justify-center select-none pointer-events-none py-[0.2vh] px-[0.2vw]">
-        {Array.from({ length: visibleCount }).map((_, i) => {
-          const offset = i - mid;
-          const rotateDeg = offset * (compact ? 3 : 5);
-          const archY = Math.abs(offset) * (compact ? 0.15 : 0.25);
+      <div className="flex flex-row items-center select-none pointer-events-none py-0.5 px-0.5 shrink-0">
+        <div className="flex flex-row items-center">
+          {Array.from({ length: visibleCount }).map((_, i) => {
+            const offset = i - mid;
+            const rotateDeg = offset * (compact ? 3.5 : 5);
+            const archY = Math.abs(offset) * 0.2;
 
-          return (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.5 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: i * 0.035, duration: 0.2 }}
-              style={{
-                width: cardWidthToken,
-                marginLeft: i === 0 ? '0' : compact ? 'clamp(-13px, -2vw, -8px)' : 'clamp(-20px, -1.7vmin, -10px)',
-                transform: `translateY(${archY}vh) rotate(${rotateDeg}deg)`,
-                zIndex: i + 1,
-              }}
-              className="uno-card-fluid rounded-[14%] bg-gradient-to-br from-slate-900 via-slate-950 to-black border-2 border-white/85 shadow-md flex items-center justify-center overflow-hidden shrink-0"
-            >
-              <div className="w-[82%] h-[76%] rounded-full bg-gradient-to-br from-red-600 to-rose-700 -rotate-24 border border-amber-300/70 flex items-center justify-center">
-                <span
-                  style={{ fontSize: 'clamp(6px, 0.75vmin, 9px)' }}
-                  className="font-display font-black text-yellow-300 tracking-tighter"
-                >
-                  UNO
-                </span>
-              </div>
-            </motion.div>
-          );
-        })}
+            return (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, scale: 0.5 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: i * 0.035, duration: 0.2 }}
+                style={{
+                  width: cardWidthToken,
+                  aspectRatio: '1 / 1.4',
+                  borderRadius: 'calc(var(--opp-card-w) * 0.08)',
+                  marginLeft: i === 0 ? '0' : 'calc(var(--opp-card-w) * -0.6)',
+                  transform: `translateY(${archY}vh) rotate(${rotateDeg}deg)`,
+                  zIndex: i + 1,
+                }}
+                className="uno-card-fluid bg-gradient-to-br from-slate-900 via-slate-950 to-black border-2 border-white/85 shadow-md flex items-center justify-center overflow-hidden shrink-0"
+              >
+                <div className="w-[82%] h-[76%] rounded-full bg-gradient-to-br from-red-600 to-rose-700 -rotate-24 border border-amber-300/70 flex items-center justify-center">
+                  <span
+                    style={{ fontSize: 'calc(var(--opp-card-w) * 0.28)' }}
+                    className="font-display font-black text-yellow-300 tracking-tighter"
+                  >
+                    UNO
+                  </span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* Part 13: +N badge when opponent has more than 5 cards */}
+        {overflowCount > 0 && (
+          <span
+            style={{ fontSize: 'var(--font-xs)' }}
+            className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-900/90 border border-white/20 text-amber-300 font-display font-black shadow shrink-0"
+          >
+            +{overflowCount}
+          </span>
+        )}
       </div>
     );
   }
@@ -71,35 +84,48 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
 
   return (
     <div className="flex flex-col items-center justify-center select-none pointer-events-none px-[0.5vw] py-[0.5vh]">
-      {Array.from({ length: visibleCount }).map((_, i) => {
-        const offset = i - mid;
-        const rotateDeg = (isLeft ? 90 : -90) + offset * 3.5;
+      <div className="flex flex-col items-center">
+        {Array.from({ length: visibleCount }).map((_, i) => {
+          const offset = i - mid;
+          const rotateDeg = (isLeft ? 90 : -90) + offset * 3.5;
 
-        return (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: i * 0.035, duration: 0.2 }}
-            style={{
-              width: cardWidthToken,
-              marginTop: i === 0 ? '0' : 'clamp(-34px, -3.6vmin, -18px)',
-              transform: `rotate(${rotateDeg}deg)`,
-              zIndex: i + 1,
-            }}
-            className="uno-card-fluid rounded-[14%] bg-gradient-to-br from-slate-900 via-slate-950 to-black border-2 border-white/85 shadow-md flex items-center justify-center overflow-hidden shrink-0"
-          >
-            <div className="w-[82%] h-[76%] rounded-full bg-gradient-to-br from-red-600 to-rose-700 -rotate-24 border border-amber-300/70 flex items-center justify-center">
-              <span
-                style={{ fontSize: 'clamp(6px, 0.75vmin, 9px)' }}
-                className="font-display font-black text-yellow-300 tracking-tighter"
-              >
-                UNO
-              </span>
-            </div>
-          </motion.div>
-        );
-      })}
+          return (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: i * 0.035, duration: 0.2 }}
+              style={{
+                width: cardWidthToken,
+                aspectRatio: '1 / 1.4',
+                borderRadius: 'calc(var(--opp-card-w) * 0.08)',
+                marginTop: i === 0 ? '0' : 'calc(var(--opp-card-w) * -0.6)',
+                transform: `rotate(${rotateDeg}deg)`,
+                zIndex: i + 1,
+              }}
+              className="uno-card-fluid bg-gradient-to-br from-slate-900 via-slate-950 to-black border-2 border-white/85 shadow-md flex items-center justify-center overflow-hidden shrink-0"
+            >
+              <div className="w-[82%] h-[76%] rounded-full bg-gradient-to-br from-red-600 to-rose-700 -rotate-24 border border-amber-300/70 flex items-center justify-center">
+                <span
+                  style={{ fontSize: 'calc(var(--opp-card-w) * 0.28)' }}
+                  className="font-display font-black text-yellow-300 tracking-tighter"
+                >
+                  UNO
+                </span>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {overflowCount > 0 && (
+        <span
+          style={{ fontSize: 'var(--font-xs)' }}
+          className="mt-1 px-1.5 py-0.5 rounded-full bg-slate-900/90 border border-white/20 text-amber-300 font-display font-black shadow shrink-0"
+        >
+          +{overflowCount}
+        </span>
+      )}
     </div>
   );
 });

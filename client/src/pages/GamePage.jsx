@@ -598,7 +598,7 @@ export default function GamePage() {
             >
               {/* Suit Indicator Pill */}
               <div
-                className={`px-3 py-0.5 rounded-full border text-xs font-display font-black uppercase tracking-wider mb-1.5 transition-colors ${activeColorStyle.badge}`}
+                className={`px-2.5 py-0.5 rounded-full border text-[11px] font-display font-black uppercase tracking-wider mb-1 transition-colors ${activeColorStyle.badge}`}
               >
                 Suit: {gameState.activeColor}
               </div>
@@ -621,7 +621,10 @@ export default function GamePage() {
               </div>
 
               {/* Draw Pile & Discard Pile */}
-              <div className="flex items-center justify-center gap-5 sm:gap-6">
+              <div
+                style={{ gap: 'clamp(12px, 4vw, 24px)' }}
+                className="flex items-center justify-center"
+              >
                 {/* Draw Pile (Deck) */}
                 <div className="flex flex-col items-center">
                   <div className="relative">
@@ -857,14 +860,14 @@ export default function GamePage() {
                 scrollPadding: '0 16px',
                 WebkitOverflowScrolling: 'touch',
               }}
-              className="hand-scroll hand-fade-mask flex items-center overflow-x-auto overflow-y-hidden w-full px-4 pt-1.5 pb-2.5"
+              className="hand-scroll hand-fade-mask hand-wrapper flex items-center overflow-x-auto overflow-y-hidden w-full px-4 pt-4 pb-3"
             >
               {me.finished ? (
                 <div className="text-center py-3 text-emerald-300 font-display font-bold text-xs w-full">
                   🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
                 </div>
               ) : (
-                <div className="flex items-center min-w-full justify-start sm:justify-center px-2 shrink-0">
+                <div className="flex items-end min-w-full justify-start sm:justify-center px-3 shrink-0">
                   <AnimatePresence>
                     {myHand.map((card, idx) => {
                       const playable =
@@ -874,11 +877,11 @@ export default function GamePage() {
                         <div
                           key={card.id}
                           style={{
-                            marginLeft: idx === 0 ? '0px' : 'clamp(-20px, -3.5vw, -8px)',
+                            marginLeft: idx === 0 ? '0px' : 'calc(var(--card-w) * -0.35)',
                             zIndex: idx + 1,
                             touchAction: 'pan-x',
                           }}
-                          className="hand-card-slot shrink-0 transition-transform duration-150 snap-center"
+                          className="hand-card-slot shrink-0 snap-center"
                         >
                           <UnoCard
                             card={card}
@@ -892,7 +895,7 @@ export default function GamePage() {
                       );
                     })}
                   </AnimatePresence>
-                  <div className="w-5 shrink-0 pointer-events-none" aria-hidden="true" />
+                  <div className="w-6 shrink-0 pointer-events-none" aria-hidden="true" />
                 </div>
               )}
             </div>
@@ -1296,13 +1299,13 @@ export default function GamePage() {
             {/* Horizontally Fanned Face-Up Hand (Fluid clamp() card sizing + snap-scrollable overflow on mobile) */}
             <div
               style={{
-                paddingTop: 'clamp(0.45rem, 1.4vh, 0.9rem)',
+                paddingTop: '16px',
                 paddingBottom: 'clamp(0.25rem, 0.8vh, 0.5rem)',
                 touchAction: 'pan-x',
                 scrollPadding: '0 16px',
                 WebkitOverflowScrolling: 'touch',
               }}
-              className="hand-scroll hand-fade-mask flex items-center overflow-x-auto overflow-y-hidden px-4"
+              className="hand-scroll hand-fade-mask hand-wrapper flex items-center overflow-x-auto overflow-y-hidden px-4"
             >
               {me.finished ? (
                 <div
@@ -1312,7 +1315,7 @@ export default function GamePage() {
                   🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
                 </div>
               ) : (
-                <div className="flex items-center min-w-full justify-start sm:justify-center px-2 shrink-0">
+                <div className="flex items-end min-w-full justify-start sm:justify-center px-3 shrink-0">
                   <AnimatePresence>
                     {myHand.map((card, idx) => {
                       const playable =
@@ -1332,7 +1335,7 @@ export default function GamePage() {
                           key={card.id}
                           style={{
                             marginLeft:
-                              idx === 0 ? '0px' : 'clamp(-24px, -2vw, -10px)',
+                              idx === 0 ? '0px' : 'calc(var(--card-w) * -0.35)',
                             transform: `translate3d(0, ${archDropVmin}vmin, 0) rotate(${fanAngleDeg}deg)`,
                             zIndex: idx + 1,
                             touchAction: 'pan-x',
@@ -1351,7 +1354,7 @@ export default function GamePage() {
                       );
                     })}
                   </AnimatePresence>
-                  <div className="w-5 shrink-0 pointer-events-none" aria-hidden="true" />
+                  <div className="w-6 shrink-0 pointer-events-none" aria-hidden="true" />
                 </div>
               )}
             </div>

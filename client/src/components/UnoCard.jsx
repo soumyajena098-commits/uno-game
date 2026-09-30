@@ -68,10 +68,10 @@ function UnoCardComponent({
 
   const fluidWidth =
     size === 'sm'
-      ? 'var(--card-sm-size)'
+      ? 'var(--opp-card-w, var(--card-sm-size))'
       : size === 'lg' || size === 'center'
-      ? 'var(--card-center-size)'
-      : 'var(--card-size)';
+      ? 'var(--pile-card-w, var(--card-center-size))'
+      : 'var(--card-w, var(--card-size))';
 
   const handlePress = () => {
     if (disabled) return;
@@ -140,7 +140,12 @@ function UnoCardComponent({
       <motion.button
         type="button"
         aria-label="UNO Draw Pile Card"
-        style={{ width: fluidWidth, touchAction: 'pan-x' }}
+        style={{
+          width: fluidWidth,
+          aspectRatio: '1 / 1.4',
+          borderRadius: `calc(${fluidWidth} * 0.08)`,
+          touchAction: 'pan-x',
+        }}
         whileTap={!reduceMotion && (onClick || onCardSelect) && !disabled ? { scale: 0.95 } : {}}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
@@ -148,17 +153,20 @@ function UnoCardComponent({
         onPointerCancel={handlePointerCancel}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
-        className={`uno-card-fluid relative select-none bg-slate-950 border-2 border-white/90 rounded-[14%] p-[5%] shadow-xl overflow-hidden flex items-center justify-center ${
+        className={`uno-card-fluid relative select-none bg-slate-950 border-2 border-white/90 p-[4%] shadow-xl overflow-hidden flex items-center justify-center ${
           (onClick || onCardSelect) && !disabled
             ? 'cursor-pointer uno-card-hover-lift'
             : 'cursor-default'
         } ${className}`}
       >
-        <div className="w-full h-full rounded-[11%] bg-gradient-to-br from-slate-900 via-black to-slate-950 flex items-center justify-center relative overflow-hidden border border-white/10">
+        <div
+          style={{ borderRadius: `calc(${fluidWidth} * 0.06)` }}
+          className="w-full h-full bg-gradient-to-br from-slate-900 via-black to-slate-950 flex items-center justify-center relative overflow-hidden border border-white/10"
+        >
           <div className="w-[86%] h-[68%] bg-gradient-to-br from-red-500 to-red-700 rounded-full -rotate-28 flex items-center justify-center shadow-inner border-2 border-yellow-400/80">
             <span
-              style={{ fontSize: 'clamp(11px, 2vmin, 22px)' }}
-              className="font-display font-extrabold text-yellow-300 tracking-tighter drop-shadow-[0_2px_2px_rgba(0,0,0,0.85)] -rotate-6"
+              style={{ fontSize: `calc(${fluidWidth} * 0.28)` }}
+              className="font-display font-black text-yellow-300 tracking-tighter drop-shadow-[0_2px_2px_rgba(0,0,0,0.85)] -rotate-6"
             >
               UNO
             </span>
@@ -177,34 +185,35 @@ function UnoCardComponent({
   const isWildCard = card.type === 'wild' || card.type === 'wild4';
 
   const renderSymbol = (isCorner = false) => {
-    const cornerStyle = { fontSize: 'clamp(9px, 1.25vmin, 14px)' };
-    const centerStyle = { fontSize: 'clamp(20px, 3.8vmin, 42px)' };
+    const cornerStyle = { fontSize: `calc(${fluidWidth} * 0.18)` };
+    const centerStyle = { fontSize: `calc(${fluidWidth} * 0.45)` };
+    const symbolStyle = { fontSize: `calc(${fluidWidth} * 0.35)` };
 
     switch (card.type) {
       case 'skip':
         return (
           <Ban
             style={{
-              width: isCorner ? 'clamp(10px, 1.4vmin, 15px)' : 'clamp(20px, 3.8vmin, 42px)',
-              height: isCorner ? 'clamp(10px, 1.4vmin, 15px)' : 'clamp(20px, 3.8vmin, 42px)',
+              width: isCorner ? `calc(${fluidWidth} * 0.18)` : `calc(${fluidWidth} * 0.35)`,
+              height: isCorner ? `calc(${fluidWidth} * 0.18)` : `calc(${fluidWidth} * 0.35)`,
             }}
-            className="stroke-[2.75]"
+            className="stroke-[3]"
           />
         );
       case 'reverse':
         return (
           <RefreshCw
             style={{
-              width: isCorner ? 'clamp(10px, 1.4vmin, 15px)' : 'clamp(20px, 3.8vmin, 42px)',
-              height: isCorner ? 'clamp(10px, 1.4vmin, 15px)' : 'clamp(20px, 3.8vmin, 42px)',
+              width: isCorner ? `calc(${fluidWidth} * 0.18)` : `calc(${fluidWidth} * 0.35)`,
+              height: isCorner ? `calc(${fluidWidth} * 0.18)` : `calc(${fluidWidth} * 0.35)`,
             }}
-            className="stroke-[2.75]"
+            className="stroke-[3]"
           />
         );
       case 'draw2':
         return (
           <span
-            style={isCorner ? cornerStyle : centerStyle}
+            style={isCorner ? cornerStyle : symbolStyle}
             className="font-display font-black tracking-tighter leading-none"
           >
             +2
@@ -237,7 +246,7 @@ function UnoCardComponent({
               <div className="bg-emerald-500 rounded-xs" />
             </div>
             <span
-              style={{ fontSize: 'clamp(15px, 2.8vmin, 28px)' }}
+              style={{ fontSize: `calc(${fluidWidth} * 0.32)` }}
               className="absolute font-display font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
             >
               +4
@@ -260,12 +269,17 @@ function UnoCardComponent({
     <motion.button
       type="button"
       aria-label={`${effectiveColor} ${card.value} card`}
-      style={{ width: fluidWidth, touchAction: 'pan-x' }}
+      style={{
+        width: fluidWidth,
+        aspectRatio: '1 / 1.4',
+        borderRadius: `calc(${fluidWidth} * 0.08)`,
+        touchAction: 'pan-x',
+      }}
       initial={reduceMotion ? false : { opacity: 0, scale: 0.92 }}
       animate={{
         opacity: disabled && !playable ? 0.62 : 1,
         scale: focused ? 1.06 : 1,
-        y: playable ? '-0.7vh' : '0vh',
+        y: playable ? '-8px' : '0px',
       }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       whileTap={!reduceMotion && !disabled ? { scale: 0.95 } : {}}
@@ -275,7 +289,7 @@ function UnoCardComponent({
       onPointerCancel={handlePointerCancel}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
-      className={`uno-card-fluid relative select-none bg-white border-2 border-white rounded-[14%] p-[5%] shadow-lg flex items-center justify-center shrink-0 snap-center ${
+      className={`uno-card-fluid relative select-none bg-white border-2 border-white p-[4%] shadow-lg flex items-center justify-center shrink-0 snap-center ${
         playable
           ? `ring-3 ring-yellow-300 shadow-xl ${palette.glow} cursor-pointer uno-card-hover-lift`
           : focused
@@ -286,16 +300,17 @@ function UnoCardComponent({
       } ${className}`}
     >
       <div
-        className={`w-full h-full rounded-[11%] bg-gradient-to-br ${palette.bg} ${palette.border} border flex flex-col justify-between p-[8%] relative overflow-hidden`}
+        style={{ borderRadius: `calc(${fluidWidth} * 0.06)` }}
+        className={`w-full h-full bg-gradient-to-br ${palette.bg} ${palette.border} border flex flex-col justify-between p-[8%] relative overflow-hidden`}
       >
         {isWildCard && (
           <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22)_0%,transparent_45%,rgba(255,255,255,0.12)_100%)] pointer-events-none" />
         )}
 
-        <div className="self-start text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] leading-none z-10 flex items-center gap-0.5">
+        <div className="self-start text-white font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] leading-none z-10 flex items-center gap-0.5">
           {renderSymbol(true)}
           {colorBlindMode && (
-            <span style={{ fontSize: 'clamp(7px, 0.9vmin, 10px)' }} className="opacity-90">
+            <span style={{ fontSize: `calc(${fluidWidth} * 0.12)` }} className="opacity-90">
               {palette.symbol}
             </span>
           )}
@@ -306,17 +321,17 @@ function UnoCardComponent({
             <div
               className={`rotate-25 flex items-center justify-center w-full h-full ${
                 isWildCard ? 'text-slate-900' : palette.text
-              } drop-shadow-xs`}
+              } drop-shadow-[0_1px_2px_rgba(0,0,0,0.25)]`}
             >
               {renderSymbol(false)}
             </div>
           </div>
         </div>
 
-        <div className="self-end rotate-180 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.6)] leading-none z-10 flex items-center gap-0.5">
+        <div className="self-end rotate-180 text-white font-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] leading-none z-10 flex items-center gap-0.5">
           {renderSymbol(true)}
           {colorBlindMode && (
-            <span style={{ fontSize: 'clamp(7px, 0.9vmin, 10px)' }} className="opacity-90">
+            <span style={{ fontSize: `calc(${fluidWidth} * 0.12)` }} className="opacity-90">
               {palette.symbol}
             </span>
           )}
