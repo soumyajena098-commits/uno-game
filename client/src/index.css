@@ -52,20 +52,27 @@
 
 @layer base {
   html,
-  body,
-  #root {
+  body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%);
     width: 100%;
-    height: 100%;
+    min-height: 100%;
     min-height: 100dvh;
-    overflow: hidden;
-    overscroll-behavior: none;
-    position: fixed;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  #root {
+    width: 100%;
+    min-height: 100%;
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
   }
 
   h1,
@@ -76,10 +83,21 @@
   }
 }
 
-/* Safe-Area Viewport Container (Respects mobile notches & home indicator bars) */
-.uno-safe-viewport {
+/* Part 10 & 11: Locked Game Viewport (Scoped only to active Game screen) */
+.game-screen {
+  position: fixed;
+  inset: 0;
   width: 100vw;
   height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+/* Safe-Area Viewport Container (Respects mobile notches & home indicator bars) */
+.uno-safe-viewport {
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
   display: flex;
@@ -89,6 +107,86 @@
   padding-bottom: max(0.5vh, env(safe-area-inset-bottom, 0px));
   padding-left: max(1.5vw, env(safe-area-inset-left, 0px));
   padding-right: max(1.5vw, env(safe-area-inset-right, 0px));
+}
+
+/* Part 12: Mobile Scrollable Lobby Layout with Sticky Action Footer */
+.lobby-screen {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: radial-gradient(circle at 50% 25%, #1e1b4b 0%, #090d16 70%, #030712 100%);
+}
+
+.lobby-header {
+  flex-shrink: 0;
+  padding-top: max(12px, env(safe-area-inset-top, 12px));
+  padding-left: max(16px, env(safe-area-inset-left, 16px));
+  padding-right: max(16px, env(safe-area-inset-right, 16px));
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(10, 15, 30, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 20;
+}
+
+.lobby-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+  padding: 16px;
+  padding-left: max(16px, env(safe-area-inset-left, 16px));
+  padding-right: max(16px, env(safe-area-inset-right, 16px));
+}
+
+.lobby-footer {
+  flex-shrink: 0;
+  width: 100%;
+  z-index: 30;
+  background: rgba(10, 15, 30, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 16px;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+  padding-left: max(16px, env(safe-area-inset-left, 16px));
+  padding-right: max(16px, env(safe-area-inset-right, 16px));
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.lobby-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 640px) {
+  .lobby-mode-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 360px) {
+  .lobby-mode-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.lobby-players-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+}
+@media (max-width: 480px) {
+  .lobby-players-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
 }
 
 /*

@@ -377,7 +377,7 @@ export default function GamePage() {
   const handMid = (myHand.length - 1) / 2;
 
   return (
-    <div className="uno-safe-viewport select-none">
+    <div className="game-screen uno-safe-viewport select-none">
       {/* Top Header Bar: Info (i) + Center Turn Flow Pill + Menu (☰) */}
       <header
         style={{ paddingBlock: '0.4vh', gap: 'var(--gap)' }}
