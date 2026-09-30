@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -231,6 +231,22 @@ export default function GamePage() {
   }, [gameState?.status, roomId, navigate]);
 
   const myHand = gameState?.myHand || [];
+  const handScrollRef = useRef(null);
+  const prevHandCountRef = useRef(myHand.length);
+
+  // Auto-scroll hand smoothly when a new card is drawn
+  useEffect(() => {
+    if (myHand.length > prevHandCountRef.current && prevHandCountRef.current > 0) {
+      if (handScrollRef.current) {
+        handScrollRef.current.scrollTo({
+          left: handScrollRef.current.scrollWidth,
+          behavior: 'smooth',
+        });
+      }
+    }
+    prevHandCountRef.current = myHand.length;
+  }, [myHand.length]);
+
   const isMyTurn =
     gameState?.status === 'playing' && gameState?.activePlayerId === playerId;
   const players = gameState?.players || [];
@@ -834,13 +850,21 @@ export default function GamePage() {
             </div>
 
             {/* Horizontally Scrollable Hand with Edge Mask */}
-            <div className="hand-scroll hand-fade-mask flex items-center overflow-x-auto w-full px-4 pt-1.5 pb-2.5">
+            <div
+              ref={handScrollRef}
+              style={{
+                touchAction: 'pan-x',
+                scrollPadding: '0 16px',
+                WebkitOverflowScrolling: 'touch',
+              }}
+              className="hand-scroll hand-fade-mask flex items-center overflow-x-auto overflow-y-hidden w-full px-4 pt-1.5 pb-2.5"
+            >
               {me.finished ? (
                 <div className="text-center py-3 text-emerald-300 font-display font-bold text-xs w-full">
                   🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
                 </div>
               ) : (
-                <div className="flex items-center px-1 mx-auto">
+                <div className="flex items-center min-w-full justify-start sm:justify-center px-2 shrink-0">
                   <AnimatePresence>
                     {myHand.map((card, idx) => {
                       const playable =
@@ -852,8 +876,9 @@ export default function GamePage() {
                           style={{
                             marginLeft: idx === 0 ? '0px' : 'clamp(-20px, -3.5vw, -8px)',
                             zIndex: idx + 1,
+                            touchAction: 'pan-x',
                           }}
-                          className="hand-card-slot shrink-0 transition-transform duration-150"
+                          className="hand-card-slot shrink-0 transition-transform duration-150 snap-center"
                         >
                           <UnoCard
                             card={card}
@@ -867,6 +892,7 @@ export default function GamePage() {
                       );
                     })}
                   </AnimatePresence>
+                  <div className="w-5 shrink-0 pointer-events-none" aria-hidden="true" />
                 </div>
               )}
             </div>
@@ -1272,8 +1298,11 @@ export default function GamePage() {
               style={{
                 paddingTop: 'clamp(0.45rem, 1.4vh, 0.9rem)',
                 paddingBottom: 'clamp(0.25rem, 0.8vh, 0.5rem)',
+                touchAction: 'pan-x',
+                scrollPadding: '0 16px',
+                WebkitOverflowScrolling: 'touch',
               }}
-              className="hand-scroll flex items-center justify-start sm:justify-center overflow-x-auto px-2"
+              className="hand-scroll hand-fade-mask flex items-center overflow-x-auto overflow-y-hidden px-4"
             >
               {me.finished ? (
                 <div
@@ -1283,7 +1312,7 @@ export default function GamePage() {
                   🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
                 </div>
               ) : (
-                <div className="flex items-center justify-center px-2 mx-auto">
+                <div className="flex items-center min-w-full justify-start sm:justify-center px-2 shrink-0">
                   <AnimatePresence>
                     {myHand.map((card, idx) => {
                       const playable =
@@ -1306,8 +1335,9 @@ export default function GamePage() {
                               idx === 0 ? '0px' : 'clamp(-24px, -2vw, -10px)',
                             transform: `translate3d(0, ${archDropVmin}vmin, 0) rotate(${fanAngleDeg}deg)`,
                             zIndex: idx + 1,
+                            touchAction: 'pan-x',
                           }}
-                          className="hand-card-slot transition-transform duration-200 hover:!z-30"
+                          className="hand-card-slot shrink-0 transition-transform duration-200 hover:!z-30 snap-center"
                         >
                           <UnoCard
                             card={card}
@@ -1321,6 +1351,7 @@ export default function GamePage() {
                       );
                     })}
                   </AnimatePresence>
+                  <div className="w-5 shrink-0 pointer-events-none" aria-hidden="true" />
                 </div>
               )}
             </div>
@@ -1374,7 +1405,7 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* Right-Edge Stacked Widgets: 🎵 YouTube Music Box + 💬 Collapsible Chat / Move Log (Portal) */}
+      {/* Right-Edge Floating Widget: 💬 Collapsible Chat / Move Log (Portal) */}
       <ChatDrawer
         chatMessages={gameState.chatMessages}
         actionLog={gameState.actionLog}

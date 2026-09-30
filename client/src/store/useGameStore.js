@@ -182,9 +182,6 @@ export const useGameStore = create((set, get) => ({
     });
 
     socket.on('player_finished', ({ playerName, rank }) => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('uno:music-duck', { detail: { reason: 'player_finished' } }));
-      }
       soundEngine.winFanfare();
       get().addToast(
         `🏆 ${playerName} emptied their hand — Finished Rank #${rank}!`,
@@ -227,9 +224,6 @@ export const useGameStore = create((set, get) => ({
     });
 
     socket.on('uno_called', ({ playerName }) => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('uno:music-duck', { detail: { reason: 'uno_called' } }));
-      }
       soundEngine.callUno();
       get().addToast(`🚨 ${playerName} yelled UNO!`, 'uno');
     });
@@ -248,9 +242,6 @@ export const useGameStore = create((set, get) => ({
     });
 
     socket.on('round_over', ({ roundSummary }) => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('uno:music-duck', { detail: { reason: 'round_over' } }));
-      }
       soundEngine.winFanfare();
       get().addToast(
         `🏁 Round ${roundSummary.roundNumber} ended! 🥇 1st Place: ${roundSummary.winnerName}`,
@@ -259,9 +250,6 @@ export const useGameStore = create((set, get) => ({
     });
 
     socket.on('game_over', ({ winner }) => {
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('uno:music-duck', { detail: { reason: 'game_over' } }));
-      }
       soundEngine.winFanfare();
       get().addToast(
         `🏆 ${winner.name} won the match with ${winner.totalScore} points!`,

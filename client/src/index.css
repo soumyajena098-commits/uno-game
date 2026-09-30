@@ -52,7 +52,8 @@
 
 @layer base {
   html,
-  body {
+  body,
+  #root {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%);
     width: 100%;
@@ -60,6 +61,7 @@
     min-height: 100dvh;
     overflow: hidden;
     overscroll-behavior: none;
+    position: fixed;
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
@@ -136,7 +138,7 @@
 .uno-card-fluid {
   aspect-ratio: 2 / 3;
   flex: 0 0 auto;
-  touch-action: manipulation;
+  touch-action: pan-x;
 }
 
 /* Hover-lift only on true hover devices (PC/Mouse) per Part 8 Rule 9 */
@@ -154,33 +156,38 @@
   touch-action: manipulation;
 }
 
-/* Custom scrollbar for player hand tray */
+/* Part 11 Rule A: Isolate Hand Scrolling */
 .hand-scroll {
-  scroll-snap-type: x mandatory;
+  overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: none;
+  touch-action: pan-x;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  scroll-behavior: auto;
 }
 .hand-scroll::-webkit-scrollbar {
-  height: 0.35vh;
+  display: none;
 }
-.hand-scroll::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.4);
-  border-radius: 9999px;
-}
-.hand-scroll::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.35);
-  border-radius: 9999px;
-}
-.hand-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(248, 113, 113, 0.7);
+
+/* Part 11 Rule F: Chat Panel Message List Scrolling */
+.chat-messages {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 /* Subtle edge fade gradient mask for horizontal hand scrolling */
 .hand-fade-mask {
-  mask-image: linear-gradient(to right, transparent 0%, black 14px, black calc(100% - 14px), transparent 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 14px, black calc(100% - 14px), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
 }
 
-/* Floating Stack: Music Box + Chat Drawer button */
+/* Floating Stack: Single Chat Drawer button (Music Player removed) */
 .uno-floating-stack {
   position: fixed;
   right: 2vw;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Ban, RefreshCw } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore.js';
@@ -42,9 +42,10 @@ const COLOR_STYLES = {
 };
 
 /**
- * Memoized UNO Card Component (`<UnoCard />`) — Part 4 & Part 8 Fluid Relative Layout
+ * Memoized UNO Card Component (`<UnoCard />`) — Part 4, 8 & 11 Tap vs Swipe & Pan-X
  *
- * - Uses `aspect-ratio: 2 / 3` (`uno-card-fluid`) and CSS custom property widths (`var(--card-size)`, `var(--card-center-size)`).
+ * - Uses `aspect-ratio: 2 / 3` (`uno-card-fluid`) and `touch-action: pan-x`.
+ * - Detects tap vs swipe using an 8px movement threshold so horizontal hand swipes never accidentally play cards.
  * - Zero hardcoded pixel sizes — scales fluidly across phones, tablets, laptops, and desktops.
  * - Strictly memoized so cards never re-render or wobble on timer ticks.
  */
@@ -62,6 +63,9 @@ function UnoCardComponent({
   const colorBlindMode = useGameStore((s) => s.colorBlindMode);
   const reduceMotion = useGameStore((s) => s.reduceMotion);
 
+  const pointerStartRef = useRef(null);
+  const pointerMovedRef = useRef(false);
+
   const fluidWidth =
     size === 'sm'
       ? 'var(--card-sm-size)'
@@ -78,14 +82,72 @@ function UnoCardComponent({
     }
   };
 
+  const handlePointerDown = (e) => {
+    pointerMovedRef.current = false;
+    pointerStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+    };
+  };
+
+  const handlePointerMove = (e) => {
+    if (!pointerStartRef.current) return;
+    const dx = Math.abs(e.clientX - pointerStartRef.current.x);
+    const dy = Math.abs(e.clientY - pointerStartRef.current.y);
+    if (dx >= 8 || dy >= 8) {
+      pointerMovedRef.current = true;
+    }
+  };
+
+  const handlePointerUp = (e) => {
+    if (!pointerStartRef.current) return;
+    const dx = Math.abs(e.clientX - pointerStartRef.current.x);
+    const dy = Math.abs(e.clientY - pointerStartRef.current.y);
+    pointerStartRef.current = null;
+
+    if (dx < 8 && dy < 8 && !pointerMovedRef.current) {
+      handlePress();
+    }
+  };
+
+  const handlePointerCancel = () => {
+    pointerStartRef.current = null;
+    pointerMovedRef.current = false;
+  };
+
+  const handleClick = (e) => {
+    // If user moved/swiped >= 8px, cancel click to prevent accidental play
+    if (pointerMovedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      return;
+    }
+    // Keyboard accessibility trigger (Enter / Space)
+    if (e.detail === 0) {
+      handlePress();
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handlePress();
+    }
+  };
+
   if (faceDown || !card) {
     return (
       <motion.button
         type="button"
         aria-label="UNO Draw Pile Card"
-        style={{ width: fluidWidth }}
+        style={{ width: fluidWidth, touchAction: 'pan-x' }}
         whileTap={!reduceMotion && (onClick || onCardSelect) && !disabled ? { scale: 0.95 } : {}}
-        onClick={handlePress}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
+        onClick={handleClick}
+        onKeyDown={handleKeyDown}
         className={`uno-card-fluid relative select-none bg-slate-950 border-2 border-white/90 rounded-[14%] p-[5%] shadow-xl overflow-hidden flex items-center justify-center ${
           (onClick || onCardSelect) && !disabled
             ? 'cursor-pointer uno-card-hover-lift'
@@ -198,7 +260,7 @@ function UnoCardComponent({
     <motion.button
       type="button"
       aria-label={`${effectiveColor} ${card.value} card`}
-      style={{ width: fluidWidth }}
+      style={{ width: fluidWidth, touchAction: 'pan-x' }}
       initial={reduceMotion ? false : { opacity: 0, scale: 0.92 }}
       animate={{
         opacity: disabled && !playable ? 0.62 : 1,
@@ -207,7 +269,12 @@ function UnoCardComponent({
       }}
       transition={{ duration: 0.18, ease: 'easeOut' }}
       whileTap={!reduceMotion && !disabled ? { scale: 0.95 } : {}}
-      onClick={handlePress}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
       className={`uno-card-fluid relative select-none bg-white border-2 border-white rounded-[14%] p-[5%] shadow-lg flex items-center justify-center shrink-0 snap-center ${
         playable
           ? `ring-3 ring-yellow-300 shadow-xl ${palette.glow} cursor-pointer uno-card-hover-lift`

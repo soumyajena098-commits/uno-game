@@ -16,7 +16,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../store/useGameStore.js';
-import { MusicBox } from './MusicPlayer.jsx';
 
 const QUICK_REACTIONS = ['👍', '😂', '😮', '😡', '🎉'];
 const EMOJI_PICKER_LIST = [
@@ -35,11 +34,13 @@ const EMOJI_PICKER_LIST = [
 ];
 
 /**
- * Part 6 Collapsible Live Chat / Move Log + Right-Side Floating Stack (`🎵` MusicBox + `💬` Chat Button)
+ * Part 6 & Part 11 Collapsible Live Chat / Move Log — Single Floating Chat Button 💬
  *
- * - Default state: Collapsed into a compact floating button (`💬`) on the right-hand side below `<MusicBox />`.
- * - Desktop: Opens a `340x450px` floating glassmorphic window anchored to the bottom-right corner (drag-friendly).
+ * - Default state: Collapsed into a compact floating button (💬) on the right-hand side.
+ * - Desktop: Opens a 340x450px floating glassmorphic window anchored to the bottom-right corner.
  * - Mobile: Opens as a bottom-sheet drawer (~60% screen height) with a top drag handle to pull down and close.
+ * - Auto-scrolls to the newest message ONLY when user is already at the bottom (never interrupts scrolled-up reading).
+ * - Smooth iOS momentum scrolling with overscroll-behavior: contain.
  * - Closes on X button, outside click, or Escape key.
  */
 export default function ChatDrawer({
@@ -62,12 +63,21 @@ export default function ChatDrawer({
   const [text, setText] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
+  const chatScrollContainerRef = useRef(null);
+  const isNearBottomRef = useRef(true);
   const windowRef = useRef(null);
   const triggerBtnRef = useRef(null);
 
-  // Auto-scroll to newest message when open
+  const handleMessageScroll = () => {
+    if (!chatScrollContainerRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = chatScrollContainerRef.current;
+    // Considered near bottom if within 60px of the end
+    isNearBottomRef.current = scrollHeight - (scrollTop + clientHeight) < 60;
+  };
+
+  // Auto-scroll to newest message ONLY when user is near bottom
   useEffect(() => {
-    if (isChatOpen) {
+    if (isChatOpen && isNearBottomRef.current) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages.length, actionLog.length, isChatOpen, tab]);
@@ -197,7 +207,11 @@ export default function ChatDrawer({
       </div>
 
       {/* Scrollable Message / Move Log Stream */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 min-h-0">
+      <div
+        ref={chatScrollContainerRef}
+        onScroll={handleMessageScroll}
+        className="chat-messages flex-1 p-3 space-y-2 min-h-0"
+      >
         {tab === 'chat' ? (
           visibleMessages.length === 0 ? (
             <p className="text-slate-500 text-xs text-center mt-10 italic">
@@ -376,12 +390,8 @@ export default function ChatDrawer({
 
   return createPortal(
     <>
-      {/* Right-Side Vertical Stack: 🎵 Music Box above 💬 Chat Button (Never overlaps hand) */}
+      {/* Right-Side Floating Chat Button (Never overlaps hand) */}
       <div className="uno-floating-stack">
-        {/* 1. Top of Stack: YouTube Background Music Box */}
-        <MusicBox />
-
-        {/* 2. Bottom of Stack: Collapsible Chat / Move Log Trigger Button */}
         <button
           ref={triggerBtnRef}
           type="button"

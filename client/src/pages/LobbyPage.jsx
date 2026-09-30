@@ -151,7 +151,7 @@ export default function LobbyPage() {
         </div>
       </header>
 
-      {/* Main Content Container (Centered with Collapsible Right-Side Music & Chat Stack) */}
+      {/* Main Content Container (Centered with Collapsible Right-Side Chat Drawer) */}
       <div className="my-4 max-w-5xl w-full mx-auto flex-1">
         <div className="space-y-5">
           {/* Big Room Code Banner (Code Only — No Localhost URL) */}
@@ -372,7 +372,7 @@ export default function LobbyPage() {
         </div>
       </div>
 
-      {/* Collapsible Right-Side Music Box + Live Chat / Move Log Portal */}
+      {/* Collapsible Right-Side Live Chat / Move Log Portal */}
       <ChatDrawer
         chatMessages={gameState.chatMessages}
         actionLog={gameState.actionLog}
