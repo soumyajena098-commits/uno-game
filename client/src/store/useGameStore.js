@@ -15,6 +15,18 @@ const SERVER_URL =
 // Ephemeral session-only player ID in memory (never stored in localStorage/sessionStorage)
 const IN_MEMORY_PLAYER_ID = `p_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
+function formatCardPlayedText(card, activeColor) {
+  if (!card) return '';
+  const colorStr = (card.color || activeColor || '').toUpperCase();
+  if (card.type === 'number') return `${colorStr} ${card.value}`;
+  if (card.type === 'skip') return `${colorStr} SKIP`;
+  if (card.type === 'reverse') return `${colorStr} REVERSE`;
+  if (card.type === 'draw2') return `${colorStr} +2`;
+  if (card.type === 'wild') return `Wild (Color: ${(activeColor || '').toUpperCase()})`;
+  if (card.type === 'wild4') return `Wild +4 (Color: ${(activeColor || '').toUpperCase()})`;
+  return `${colorStr} ${card.type}`.trim();
+}
+
 export const useGameStore = create((set, get) => ({
   socket: null,
   connected: false,
@@ -30,6 +42,7 @@ export const useGameStore = create((set, get) => ({
   // Authoritative Room & Game State synced from server (ephemeral in-memory only)
   gameState: null,
   toasts: [],
+  inGameNotifications: [], // Array of { id, message, icon, type, playerColor, durationMs, createdAt }
   floatingReactions: [], // Array of { id, playerId, playerName, emoji }
 
   // Local UI state
@@ -129,6 +142,33 @@ export const useGameStore = create((set, get) => ({
     }, 3600);
   },
 
+  addInGameNotification: ({ message, icon = '🃏', type = 'info', playerColor = null, durationMs = 2500 }) => {
+    const id = `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newNotif = {
+      id,
+      message,
+      icon,
+      type,
+      playerColor,
+      durationMs,
+      createdAt: Date.now(),
+    };
+    set((state) => ({
+      // If more than 3 notifications are queued, older ones fade out immediately (keep at most 3 total)
+      inGameNotifications: [...state.inGameNotifications.slice(-2), newNotif],
+    }));
+    setTimeout(() => {
+      get().removeInGameNotification(id);
+    }, durationMs);
+    return id;
+  },
+
+  removeInGameNotification: (id) => {
+    set((state) => ({
+      inGameNotifications: state.inGameNotifications.filter((n) => n.id !== id),
+    }));
+  },
+
   initSocket: () => {
     const existing = get().socket;
     if (existing) return existing;
@@ -183,10 +223,15 @@ export const useGameStore = create((set, get) => ({
 
     socket.on('player_finished', ({ playerName, rank }) => {
       soundEngine.winFanfare();
-      get().addToast(
-        `🏆 ${playerName} emptied their hand — Finished Rank #${rank}!`,
-        'success'
-      );
+      const msg = `🏆 ${playerName} emptied their hand — Finished Rank #${rank}!`;
+      get().addToast(msg, 'success');
+      get().addInGameNotification({
+        message: msg,
+        icon: '🏆',
+        type: 'success',
+        playerColor: '#10b981',
+        durationMs: 3000,
+      });
     });
 
     socket.on('reaction_sent', (reaction) => {
@@ -202,6 +247,35 @@ export const useGameStore = create((set, get) => ({
 
     socket.on('player_played_card', (payload) => {
       soundEngine.playCard();
+      const { card, activeColor, playerName } = payload || {};
+      const cardText = formatCardPlayedText(card, activeColor);
+      let icon = '🃏';
+      let effectText = '';
+      if (card?.type === 'reverse') {
+        icon = '🔄';
+        effectText = ' (Reversed ↺)';
+      } else if (card?.type === 'skip') {
+        icon = '🚫';
+        effectText = ' (Skip 🚫)';
+      } else if (card?.type === 'draw2') {
+        icon = '💥';
+        effectText = ' (+2 Cards)';
+      } else if (card?.type === 'wild4') {
+        icon = '💥';
+        effectText = ' (+4 Cards)';
+      } else if (card?.type === 'wild') {
+        icon = '🌈';
+      }
+
+      const cardColor = card?.color || activeColor || 'blue';
+      get().addInGameNotification({
+        message: `${playerName || 'Player'} played ${cardText}${effectText}`,
+        icon,
+        type: 'play',
+        playerColor: cardColor,
+        durationMs: 2500,
+      });
+
       const announcementId = `play_${Date.now()}`;
       set({
         lastPlayedAnnouncement: {
@@ -216,45 +290,101 @@ export const useGameStore = create((set, get) => ({
             ? { lastPlayedAnnouncement: null }
             : state
         );
-      }, 2200);
+      }, 2000);
     });
 
-    socket.on('card_drawn', () => {
+    socket.on('card_drawn', (payload) => {
       soundEngine.drawCard();
+      const pName = payload?.playerName;
+      if (pName) {
+        const isMe = payload?.playerId === get().playerId;
+        get().addInGameNotification({
+          message: `${isMe ? 'You' : pName} drew a card`,
+          icon: '📥',
+          type: 'draw',
+          durationMs: 2000,
+        });
+      }
     });
 
     socket.on('uno_called', ({ playerName }) => {
       soundEngine.callUno();
-      get().addToast(`🚨 ${playerName} yelled UNO!`, 'uno');
+      const msg = `🚨 ${playerName} yelled UNO!`;
+      get().addToast(msg, 'uno');
+      get().addInGameNotification({
+        message: msg,
+        icon: '🚨',
+        type: 'uno',
+        playerColor: '#ef4444',
+        durationMs: 3000,
+      });
     });
 
     socket.on('uno_caught', ({ callerName, targetName }) => {
       soundEngine.errorBuzz();
-      get().addToast(
-        `⚡ ${callerName} caught ${targetName} not saying UNO! (+2 Penalty Cards)`,
-        'error'
-      );
+      const msg = `⚡ ${callerName} caught ${targetName} not saying UNO! (+2 Penalty Cards)`;
+      get().addToast(msg, 'error');
+      get().addInGameNotification({
+        message: msg,
+        icon: '⚡',
+        type: 'warning',
+        playerColor: '#eab308',
+        durationMs: 3000,
+      });
     });
 
     socket.on('turn_timeout', ({ message }) => {
       soundEngine.errorBuzz();
       get().addToast(`⏱️ ${message}`, 'warning');
+      get().addInGameNotification({
+        message: `⏱️ ${message}`,
+        icon: '⏱️',
+        type: 'warning',
+        durationMs: 2500,
+      });
     });
 
     socket.on('round_over', ({ roundSummary }) => {
       soundEngine.winFanfare();
-      get().addToast(
-        `🏁 Round ${roundSummary.roundNumber} ended! 🥇 1st Place: ${roundSummary.winnerName}`,
-        'success'
-      );
+      const msg = `🏁 Round ${roundSummary.roundNumber} ended! 🥇 1st Place: ${roundSummary.winnerName}`;
+      get().addToast(msg, 'success');
+      get().addInGameNotification({
+        message: msg,
+        icon: '🏁',
+        type: 'success',
+        playerColor: '#eab308',
+        durationMs: 3000,
+      });
     });
 
     socket.on('game_over', ({ winner }) => {
       soundEngine.winFanfare();
-      get().addToast(
-        `🏆 ${winner.name} won the match with ${winner.totalScore} points!`,
-        'success'
-      );
+      const msg = `🏆 ${winner.name} won the match with ${winner.totalScore} points!`;
+      get().addToast(msg, 'success');
+      get().addInGameNotification({
+        message: msg,
+        icon: '🏆',
+        type: 'success',
+        playerColor: '#eab308',
+        durationMs: 3000,
+      });
+    });
+
+    socket.on('system_message', (msg) => {
+      const text = msg?.text || '';
+      if (
+        text.includes('joined the room') ||
+        text.includes('left the room') ||
+        text.includes('disconnected') ||
+        text.includes('reconnected')
+      ) {
+        get().addInGameNotification({
+          message: text,
+          icon: text.includes('left') || text.includes('disconnected') ? '👋' : '👤',
+          type: 'info',
+          durationMs: 2000,
+        });
+      }
     });
 
     socket.on('room_destroyed', ({ reason }) => {
@@ -263,6 +393,7 @@ export const useGameStore = create((set, get) => ({
         gameState: null,
         pendingWildCard: null,
         lastPlayedAnnouncement: null,
+        inGameNotifications: [],
         unreadChatCount: 0,
       });
       if (reason) {

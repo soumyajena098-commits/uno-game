@@ -212,14 +212,19 @@ function TurnTimerComponent({
   }
 
   // Default: Circular SVG Countdown Ring around Avatar (`variant === 'ring'`)
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference * (1 - progress);
+  const ringRadius = 45;
+  const ringCircumference = 2 * Math.PI * ringRadius;
+  const ringDashoffset = ringCircumference * (1 - progress);
+  const ringStroke = strokeWidth || 5;
 
   return (
     <div
-      style={{ width: size, height: size }}
-      className={`relative flex items-center justify-center rounded-full transition-shadow duration-300 ${
+      style={
+        size && typeof size === 'number' && !children
+          ? { width: size, height: size }
+          : undefined
+      }
+      className={`relative flex items-center justify-center p-1 sm:p-1.5 rounded-full transition-shadow duration-300 ${
         isUrgent
           ? 'shadow-[0_0_24px_rgba(239,68,68,0.75)] animate-pulse'
           : active
@@ -229,27 +234,26 @@ function TurnTimerComponent({
     >
       {active && (
         <svg
-          width={size}
-          height={size}
-          className="absolute inset-0 -rotate-90 pointer-events-none"
+          viewBox="0 0 100 100"
+          className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none overflow-visible"
         >
           <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
+            cx="50"
+            cy="50"
+            r={ringRadius}
             fill="transparent"
-            stroke="rgba(255,255,255,0.14)"
-            strokeWidth={strokeWidth}
+            stroke="rgba(255,255,255,0.16)"
+            strokeWidth={ringStroke}
           />
           <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
+            cx="50"
+            cy="50"
+            r={ringRadius}
             fill="transparent"
             stroke={strokeColor}
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
+            strokeWidth={ringStroke}
+            strokeDasharray={ringCircumference}
+            strokeDashoffset={ringDashoffset}
             strokeLinecap="round"
             className="transition-all duration-300"
           />
@@ -260,7 +264,7 @@ function TurnTimerComponent({
 
       {active && (
         <span
-          className={`absolute -bottom-1.5 px-1.5 py-0.2 rounded-full text-[9px] font-extrabold tabular-nums tracking-tight shadow border border-slate-950 transition-colors ${
+          className={`absolute -bottom-2 px-2 py-0.5 rounded-full text-[10px] font-mono font-black tabular-nums tracking-tight shadow-md border border-slate-950 transition-colors z-20 ${
             isUrgent
               ? 'bg-red-600 text-white animate-pulse'
               : isWarning

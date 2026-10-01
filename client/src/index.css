@@ -1,32 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  /* Part 13: Big, Readable Fluid Cards Across All Devices */
-  /* Mobile Hand Cards (>= 72px wide, portrait 1:1.4) */
-  --card-w: clamp(72px, 22vw, 96px);
+  /* Mobile Hand Cards */
+  --card-w: clamp(72px, 20vw, 96px);
   --card-h: calc(var(--card-w) * 1.4);
   --card-size: var(--card-w);
 
-  /* Center Table Discard Pile & Draw Pile (>= 84px wide) */
-  --pile-card-w: clamp(84px, 26vw, 110px);
+  /* Part 16: Big Floating Discard Pile & Draw Pile */
+  --pile-card-w: clamp(96px, 22vmin, 160px);
   --pile-card-h: calc(var(--pile-card-w) * 1.4);
   --card-center-size: var(--pile-card-w);
 
-  /* Opponent Fans (>= 28px wide) */
-  --opp-card-w: clamp(28px, 8vw, 44px);
-  --opp-card-h: calc(var(--opp-card-w) * 1.4);
-  --opp-card-width: var(--opp-card-w);
-  --card-sm-size: var(--opp-card-w);
-
-  --avatar-size: clamp(38px, 6.2vmin, 68px);
+  /* Part 17: Bigger Opponent & Player Circle Avatars (min 56px) */
+  --avatar-size: clamp(56px, 7vmin, 84px);
   --fab-size: clamp(44px, 6vmin, 56px);
   --gap: clamp(4px, 1.1vmin, 16px);
-  --arena-width: clamp(250px, 44vmin, 400px);
-  --arena-height: clamp(210px, 36vmin, 340px);
-  --font-xs: clamp(9px, 0.95vmin, 12px);
-  --font-sm: clamp(10px, 1.1vmin, 14px);
-  --font-md: clamp(12px, 1.3vmin, 16px);
-  --font-lg: clamp(14px, 1.6vmin, 20px);
+  --font-xs: clamp(10px, 1.1vmin, 13px);
+  --font-sm: clamp(12px, 1.3vmin, 15px);
+  --font-md: clamp(14px, 1.6vmin, 18px);
+  --font-lg: clamp(16px, 2vmin, 22px);
 }
 
 /* Tablet (min-width: 640px) */
@@ -34,10 +26,9 @@
   :root {
     --card-w: clamp(80px, 12vw, 110px);
     --card-h: calc(var(--card-w) * 1.4);
-    --pile-card-w: clamp(90px, 14vw, 120px);
+    --pile-card-w: clamp(104px, 18vmin, 150px);
     --pile-card-h: calc(var(--pile-card-w) * 1.4);
-    --opp-card-w: clamp(32px, 5vw, 48px);
-    --opp-card-h: calc(var(--opp-card-w) * 1.4);
+    --avatar-size: clamp(62px, 6vw, 86px);
   }
 }
 
@@ -46,26 +37,20 @@
   :root {
     --card-w: clamp(90px, 8vw, 120px);
     --card-h: calc(var(--card-w) * 1.4);
-    --pile-card-w: clamp(100px, 9vw, 130px);
+    --pile-card-w: clamp(115px, 15vmin, 160px);
     --pile-card-h: calc(var(--pile-card-w) * 1.4);
-    --opp-card-w: clamp(36px, 3.5vw, 54px);
-    --opp-card-h: calc(var(--opp-card-w) * 1.4);
-    --avatar-size: clamp(52px, 4.4vw, 76px);
+    --avatar-size: clamp(68px, 5.5vw, 92px);
   }
 }
 
 /* Mobile Landscape (Short Viewport Height <= 560px) */
 @media (orientation: landscape) and (max-height: 560px) {
   :root {
-    --card-w: clamp(58px, 13vh, 80px);
+    --card-w: clamp(54px, 13vh, 76px);
     --card-h: calc(var(--card-w) * 1.4);
-    --pile-card-w: clamp(66px, 15vh, 88px);
+    --pile-card-w: clamp(72px, 20vh, 100px);
     --pile-card-h: calc(var(--pile-card-w) * 1.4);
-    --opp-card-w: clamp(24px, 6.5vh, 36px);
-    --opp-card-h: calc(var(--opp-card-w) * 1.4);
-    --avatar-size: clamp(32px, 8.5vh, 46px);
-    --arena-width: clamp(210px, 42vh, 280px);
-    --arena-height: clamp(155px, 32vh, 210px);
+    --avatar-size: clamp(44px, 11vh, 60px);
   }
 }
 
@@ -73,7 +58,7 @@
   html,
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%);
+    background: linear-gradient(180deg, #0a0f2c 0%, #1b1440 36%, #0d1b3a 68%, #1a0f2b 100%);
     width: 100%;
     min-height: 100%;
     min-height: 100dvh;
@@ -123,7 +108,7 @@
   width: 100vw !important;
   height: 100vh !important;
   height: 100dvh !important;
-  background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%) !important;
+  background: linear-gradient(180deg, #0a0f2c 0%, #1b1440 36%, #0d1b3a 68%, #1a0f2b 100%) !important;
   overflow: hidden !important;
 }
 
@@ -370,5 +355,41 @@
   .uno-floating-stack {
     bottom: clamp(140px, 24vh, 190px);
     right: 2.5vw;
+  }
+}
+
+/* Part 18: Stronger Active Player Pulse Glow (~1.2s ease-in-out loop) */
+@keyframes active-player-pulse {
+  0%, 100% {
+    transform: scale(1.05);
+    filter: drop-shadow(0 0 16px var(--glow-color, rgba(250, 204, 21, 0.85)));
+  }
+  50% {
+    transform: scale(1.10);
+    filter: drop-shadow(0 0 28px var(--glow-color, rgba(250, 204, 21, 1)));
+  }
+}
+
+.active-player-pulse {
+  animation: active-player-pulse 1.2s ease-in-out infinite;
+}
+
+/* Part 18: Ambient Background Subtle Drifting Particles */
+@keyframes ambient-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(24px, -32px, 0);
+  }
+  100% {
+    transform: translate3d(-18px, -60px, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .active-player-pulse {
+    animation: none !important;
+    transform: scale(1.05) !important;
   }
 }

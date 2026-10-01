@@ -65,18 +65,6 @@ export function RotateDeviceOverlay({ onContinueAnyway }) {
  * - Temporary "↺ REVERSED!" pop-up badge
  */
 export function DirectionSwirl({ direction = 1 }) {
-  const [showReverseBadge, setShowReverseBadge] = useState(false);
-  const prevDirectionRef = useRef(direction);
-
-  useEffect(() => {
-    if (prevDirectionRef.current !== undefined && prevDirectionRef.current !== direction) {
-      setShowReverseBadge(true);
-      const timer = setTimeout(() => setShowReverseBadge(false), 2400);
-      return () => clearTimeout(timer);
-    }
-    prevDirectionRef.current = direction;
-  }, [direction]);
-
   return (
     <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
       {/* 500ms smooth flip container for SVG arc */}
@@ -138,115 +126,116 @@ export function DirectionSwirl({ direction = 1 }) {
           />
         </motion.svg>
       </motion.div>
-
-      {/* Temporary "↺ REVERSED!" pop-up badge */}
-      <AnimatePresence>
-        {showReverseBadge && (
-          <motion.div
-            initial={{ scale: 0.4, y: -25, opacity: 0 }}
-            animate={{ scale: 1.15, y: -45, opacity: 1 }}
-            exit={{ scale: 0.7, y: -20, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 20 }}
-            className="absolute z-40 px-4 py-1.5 rounded-full bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-500 text-slate-950 font-display font-black text-xs sm:text-sm tracking-wide shadow-[0_0_30px_rgba(16,185,129,0.9)] border-2 border-white flex items-center gap-1.5"
-          >
-            <span className="text-base">↺</span>
-            <span>REVERSED!</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
 
 /**
- * Turn Hint (Part 14 Issue 3)
- * Floating tooltip with curved animated arrow that appears for ~3 seconds when turn changes.
- * Never blocks card clicks and never wobbles cards.
+ * Turn Hint (Part 18 Specification)
+ * Floating hint box positioned directly on/near the discard pile:
+ * - When you must play a card: "Tap a glowing card to play it" (arrow curves toward discard pile)
+ * - When you must draw: "No matching card — tap Deck to draw" (arrow points at Deck)
+ * - When color must be chosen: "Pick a color"
+ * - Auto-dismisses after 3 seconds.
+ * - Font >= 14px (clamp(14px, 2vmin, 18px)).
+ * - Never wobbles cards.
  */
 export function TurnHint({
   isMyTurn,
+  hasPlayableCard,
   turnSequence,
-  activePlayerName,
   isAwaitingColor,
   hasDrawn,
   cardCount,
   saidUno,
 }) {
   const [visible, setVisible] = useState(false);
-  const [hintInfo, setHintInfo] = useState({ text: '', target: 'hand' });
+  const [hintInfo, setHintInfo] = useState({ text: '', arrowType: 'play' });
   const dismissTimerRef = useRef(null);
 
   useEffect(() => {
-    // Determine hint text & target
-    let text = '';
-    let target = 'hand';
-
-    if (isMyTurn) {
-      if (isAwaitingColor) {
-        text = 'Pick a color for your Wild card!';
-        target = 'center';
-      } else if (cardCount === 1 && !saidUno) {
-        text = 'Press UNO before anyone catches you!';
-        target = 'uno';
-      } else if (hasDrawn) {
-        text = 'Play your drawn card or Pass!';
-        target = 'hand';
-      } else {
-        text = 'Your turn! Tap a glowing card or Draw from Deck.';
-        target = 'hand';
-      }
-    } else {
-      text = `${activePlayerName || 'Opponent'}'s turn`;
-      target = 'center';
+    if (!isMyTurn) {
+      setVisible(false);
+      return;
     }
 
-    setHintInfo({ text, target });
+    let text = '';
+    let arrowType = 'play';
+
+    if (isAwaitingColor) {
+      text = 'Pick a color';
+      arrowType = 'color';
+    } else if (cardCount === 1 && !saidUno) {
+      text = 'Press UNO before anyone catches you!';
+      arrowType = 'uno';
+    } else if (hasDrawn) {
+      text = 'Play your drawn card or Pass!';
+      arrowType = 'pass';
+    } else if (hasPlayableCard) {
+      text = 'Tap a glowing card to play it';
+      arrowType = 'play';
+    } else {
+      text = 'No matching card — tap Deck to draw';
+      arrowType = 'draw';
+    }
+
+    setHintInfo({ text, arrowType });
     setVisible(true);
 
     if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     dismissTimerRef.current = setTimeout(() => {
       setVisible(false);
-    }, 3200);
+    }, 3000);
 
     return () => {
       if (dismissTimerRef.current) clearTimeout(dismissTimerRef.current);
     };
-  }, [isMyTurn, turnSequence, isAwaitingColor, hasDrawn, cardCount, saidUno, activePlayerName]);
+  }, [isMyTurn, hasPlayableCard, turnSequence, isAwaitingColor, hasDrawn, cardCount, saidUno]);
 
   return (
     <AnimatePresence>
       {visible && (
         <motion.div
-          initial={{ opacity: 0, y: isMyTurn ? 15 : -15, scale: 0.92 }}
+          initial={{ opacity: 0, y: 10, scale: 0.94 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: isMyTurn ? 10 : -10, scale: 0.95 }}
+          exit={{ opacity: 0, y: 6, scale: 0.94 }}
           transition={{ type: 'spring', stiffness: 360, damping: 22 }}
           onClick={() => setVisible(false)}
-          className={`fixed z-40 pointer-events-auto cursor-pointer ${
-            isMyTurn
-              ? 'bottom-[22vh] left-1/2 -translate-x-1/2'
-              : 'top-[16vh] left-1/2 -translate-x-1/2'
-          }`}
+          className="pointer-events-auto cursor-pointer select-none my-1 z-30"
         >
           <div
-            className={`px-4 py-2 rounded-2xl border-2 backdrop-blur-xl shadow-2xl flex items-center gap-2.5 max-w-[85vw] ${
-              isMyTurn
-                ? 'bg-amber-400 text-slate-950 border-amber-200 shadow-[0_0_30px_rgba(251,191,36,0.6)] font-extrabold'
-                : 'bg-slate-900/90 text-white border-white/20 shadow-xl font-bold'
-            }`}
+            style={{ fontSize: 'clamp(14px, 2vmin, 18px)' }}
+            className="px-4 py-1.5 sm:py-2 rounded-2xl border-2 backdrop-blur-xl shadow-[0_0_28px_rgba(251,191,36,0.65)] flex items-center gap-2 bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 text-slate-950 border-white font-extrabold"
           >
-            <Sparkles className="w-4 h-4 shrink-0 text-amber-600 animate-spin" style={{ animationDuration: '4s' }} />
-            <span className="text-xs sm:text-sm font-display tracking-tight truncate">
+            {hintInfo.arrowType === 'play' && (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-950 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
+            )}
+
+            {hintInfo.arrowType === 'draw' && (
+              <svg viewBox="0 0 24 24" className="w-5 h-5 text-slate-950 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M19 12H5M12 19l-7-7 7-7" />
+              </svg>
+            )}
+
+            {hintInfo.arrowType === 'color' && (
+              <Sparkles className="w-5 h-5 text-purple-900 shrink-0 animate-spin" style={{ animationDuration: '4s' }} />
+            )}
+
+            <span className="font-display tracking-tight whitespace-nowrap">
               {hintInfo.text}
             </span>
-            {isMyTurn && (
-              <motion.div
-                animate={{ y: [0, 4, 0] }}
-                transition={{ repeat: Infinity, duration: 0.8 }}
-                className="shrink-0 text-slate-950 text-sm font-black"
-              >
-                ↓
-              </motion.div>
+
+            {hintInfo.arrowType === 'play' && (
+              <span className="text-xs bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                ➜ Discard
+              </span>
+            )}
+            {hintInfo.arrowType === 'draw' && (
+              <span className="text-xs bg-slate-950 text-emerald-300 px-2 py-0.5 rounded-full font-mono font-bold">
+                ◂ Deck
+              </span>
             )}
           </div>
         </motion.div>
@@ -308,173 +297,16 @@ export function SettingsButton({ onClick }) {
 }
 
 /**
- * Fullscreen Detection & API Integration (Part 15)
+ * Fullscreen API Integration & Global Fullscreen Button (Part 15 & 17)
+ * Powered by global FullscreenContext so fullscreen state persists across Game and Results screens.
  */
-export function isFullscreen() {
-  if (typeof document === 'undefined') return false;
-  return Boolean(
-    document.fullscreenElement ||
-    document.webkitFullscreenElement ||
-    document.mozFullScreenElement ||
-    document.msFullscreenElement
-  );
-}
+export {
+  FullscreenButton,
+  useFullscreen,
+  isFullscreen,
+  isFullscreenSupported,
+  enterFullscreen,
+  exitFullscreen,
+} from '../context/FullscreenContext.jsx';
 
-export function isFullscreenSupported() {
-  if (typeof document === 'undefined' || typeof navigator === 'undefined') return false;
-  const isIPhone = /iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-  if (isIPhone) {
-    // iPhone Safari only supports fullscreen on <video> elements, not произвольный DOM elements
-    return false;
-  }
-  return Boolean(
-    document.fullscreenEnabled ||
-    document.webkitFullscreenEnabled ||
-    document.mozFullScreenEnabled ||
-    document.msFullscreenEnabled
-  );
-}
-
-export async function enterFullscreen(el) {
-  if (!el) return;
-  try {
-    if (el.requestFullscreen) {
-      await el.requestFullscreen();
-    } else if (el.webkitRequestFullscreen) {
-      await el.webkitRequestFullscreen();
-    } else if (el.mozRequestFullScreen) {
-      await el.mozRequestFullScreen();
-    } else if (el.msRequestFullscreen) {
-      await el.msRequestFullscreen();
-    }
-  } catch {
-    // Gracefully handle gesture or security rejections
-  }
-}
-
-export async function exitFullscreen() {
-  if (typeof document === 'undefined') return;
-  try {
-    if (document.exitFullscreen) {
-      await document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-      await document.webkitExitFullscreen();
-    } else if (document.mozCancelFullScreen) {
-      await document.mozCancelFullScreen();
-    } else if (document.msExitFullscreen) {
-      await document.msExitFullscreen();
-    }
-  } catch {
-    // Gracefully handle
-  }
-}
-
-/**
- * Fullscreen Toggle Button (Part 15 Specification)
- * - Toggles fullscreen on container element
- * - Synchronizes with browser fullscreenchange events (Esc key, browser exits)
- * - Auto-triggers resize event to resize game table
- * - Attempts mobile landscape orientation lock on enter, unlocks on exit
- * - Hides gracefully on unsupported devices (e.g. iPhone Safari)
- */
-export function FullscreenButton({ containerRef }) {
-  const [fullscreenActive, setFullscreenActive] = useState(false);
-  const [supported, setSupported] = useState(true);
-
-  useEffect(() => {
-    setSupported(isFullscreenSupported());
-    setFullscreenActive(isFullscreen());
-  }, []);
-
-  useEffect(() => {
-    const handleSync = () => {
-      const active = isFullscreen();
-      setFullscreenActive(active);
-
-      // Part 15 Rule 6: Persist in sessionStorage (ephemeral to tab session)
-      try {
-        if (active) {
-          sessionStorage.setItem('uno_fullscreen_preferred', 'true');
-        } else {
-          sessionStorage.removeItem('uno_fullscreen_preferred');
-        }
-      } catch {
-        // Ignore sessionStorage errors
-      }
-
-      // Part 15 Rule 4: Dispatch window resize so game table auto-resizes seamlessly
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-      }, 50);
-      setTimeout(() => {
-        window.dispatchEvent(new Event('resize'));
-      }, 250);
-    };
-
-    document.addEventListener('fullscreenchange', handleSync);
-    document.addEventListener('webkitfullscreenchange', handleSync);
-    document.addEventListener('mozfullscreenchange', handleSync);
-    document.addEventListener('MSFullscreenChange', handleSync);
-
-    return () => {
-      document.removeEventListener('fullscreenchange', handleSync);
-      document.removeEventListener('webkitfullscreenchange', handleSync);
-      document.removeEventListener('mozfullscreenchange', handleSync);
-      document.removeEventListener('MSFullscreenChange', handleSync);
-    };
-  }, []);
-
-  const handleToggleFullscreen = async () => {
-    const targetEl = containerRef?.current || document.documentElement;
-
-    if (!isFullscreen()) {
-      await enterFullscreen(targetEl);
-      // Part 15 Rule 5: Attempt landscape orientation lock on fullscreen enter
-      try {
-        if (window.screen?.orientation?.lock) {
-          window.screen.orientation.lock('landscape').catch(() => {});
-        }
-      } catch {
-        // Ignore
-      }
-    } else {
-      await exitFullscreen();
-      // Part 15 Rule 5: Release orientation lock on fullscreen exit
-      try {
-        if (window.screen?.orientation?.unlock) {
-          window.screen.orientation.unlock();
-        }
-      } catch {
-        // Ignore
-      }
-    }
-  };
-
-  if (!supported) {
-    return null;
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleToggleFullscreen}
-      style={{
-        width: 'clamp(36px, 5vmin, 44px)',
-        height: 'clamp(36px, 5vmin, 44px)',
-      }}
-      className={`uno-tap-target rounded-full bg-slate-900/90 hover:bg-slate-800 border-2 shadow-lg flex items-center justify-center cursor-pointer transition hover:scale-105 ${
-        fullscreenActive
-          ? 'border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.45)]'
-          : 'border-white/20 hover:border-emerald-400/60 text-slate-200 hover:text-emerald-300'
-      }`}
-      title={fullscreenActive ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-    >
-      {fullscreenActive ? (
-        <Minimize className="w-4 h-4 sm:w-5 sm:h-5" />
-      ) : (
-        <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
-      )}
-    </button>
-  );
-}
 

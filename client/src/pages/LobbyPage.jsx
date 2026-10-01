@@ -14,6 +14,7 @@ import {
   Gamepad2,
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore.js';
+import { FullscreenButton } from '../context/FullscreenContext.jsx';
 
 const GAME_MODES = [
   { id: '1vBot', label: '1 vs Bot', required: 2 },
@@ -125,6 +126,8 @@ export default function LobbyPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <FullscreenButton />
+
             {me && (
               <button
                 type="button"

@@ -19,6 +19,7 @@ import {
   Info,
   Menu,
   X,
+  WifiOff,
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore.js';
 import UnoCard from '../components/UnoCard.jsx';
@@ -35,6 +36,9 @@ import {
   SettingsButton,
   FullscreenButton,
 } from '../components/TableDecorations.jsx';
+import AmbientBackground from '../components/AmbientBackground.jsx';
+import InGameNotificationBanner from '../components/InGameNotificationBanner.jsx';
+import CardCountPill from '../components/CardCountPill.jsx';
 
 const ACTIVE_COLOR_STYLES = {
   red: {
@@ -104,49 +108,152 @@ function isCardPlayableClient(card, hand, gameState) {
   return false;
 }
 
-/**
- * Maps opponents (ordered clockwise from local player's bottom seat)
- * to exact perimeter seats per Part 14 Table Overhaul:
- * - 1 opponent (1vBot / 2P): ['top-center']
- * - 2 opponents (3P):        ['top-left', 'top-right']
- * - 3 opponents (4P):        ['top-left', 'top-center', 'top-right']
- * - 4 opponents (5P):        ['top-left', 'top-center', 'top-right', 'right-side']
- * - 5 opponents (6P):        ['left-side', 'top-left', 'top-center', 'top-right', 'right-side']
- */
-function assignOpponentSeats(opponents) {
-  const count = opponents.length;
-  const seatTemplates = {
-    1: [{ seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' }],
-    2: [
-      { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
-      { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
-    ],
-    3: [
-      { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
-      { seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' },
-      { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
-    ],
-    4: [
-      { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
-      { seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' },
-      { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
-      { seatPosition: 'right-edge', gridAreaClass: 'grid-area-mid-right' },
-    ],
-    5: [
-      { seatPosition: 'left-edge', gridAreaClass: 'grid-area-mid-left' },
-      { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
-      { seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' },
-      { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
-      { seatPosition: 'right-edge', gridAreaClass: 'grid-area-mid-right' },
-    ],
-  };
+function formatCardName(card, activeColor) {
+  if (!card) return '';
+  const colorStr = (card.color || activeColor || '').toUpperCase();
+  if (card.type === 'number') return `${colorStr} ${card.value}`;
+  if (card.type === 'skip') return `${colorStr} SKIP`;
+  if (card.type === 'reverse') return `${colorStr} REVERSE`;
+  if (card.type === 'draw2') return `${colorStr} +2`;
+  if (card.type === 'wild') return `WILD (${activeColor?.toUpperCase() || 'COLOR'})`;
+  if (card.type === 'wild4') return `WILD +4 (${activeColor?.toUpperCase() || 'COLOR'})`;
+  return `${colorStr} ${card.type}`.trim();
+}
 
-  const template = seatTemplates[count] || seatTemplates[5];
-  return opponents.map((opp, idx) => ({
-    player: opp,
-    seatPosition: template[idx]?.seatPosition || 'top-center',
-    gridAreaClass: template[idx]?.gridAreaClass || 'grid-area-top-center',
-  }));
+/**
+ * Bigger Next-Turn Indicator Box (Part 18 Specification)
+ * Height: clamp(52px, 7vh, 72px)
+ * Horizontal padding: clamp(20px, 3.2vw, 32px)
+ * Names: clamp(15px, 2.2vmin, 22px), bold
+ * Avatar inside pill: clamp(32px, 4.6vmin, 48px)
+ * Arrow: clamp(20px, 2.8vmin, 28px)
+ * Card count: clamp(12px, 1.8vmin, 16px)
+ * Layout: [🔥] [Avatar] Current Name [🃏 N]  ➜  [Avatar] Next Name [🃏 N]
+ */
+function TurnIndicatorPill({
+  activePlayer,
+  nextPlayer,
+  playerId,
+  myHandCount,
+}) {
+  if (!activePlayer) return null;
+
+  const isActiveMe = activePlayer.id === playerId;
+  const activeName = isActiveMe ? 'You' : activePlayer.name;
+  const activeCount = isActiveMe ? myHandCount : activePlayer.cardCount;
+  const activeColor = activePlayer.avatarColor || '#ef4444';
+  const activeInitial = (activeName || 'P').trim().charAt(0).toUpperCase();
+
+  const isNextMe = nextPlayer ? nextPlayer.id === playerId : false;
+  const nextName = nextPlayer ? (isNextMe ? 'You' : nextPlayer.name) : null;
+  const nextCount = nextPlayer ? (isNextMe ? myHandCount : nextPlayer.cardCount) : null;
+  const nextColor = nextPlayer?.avatarColor || '#3b82f6';
+  const nextInitial = nextPlayer ? (nextName || 'P').trim().charAt(0).toUpperCase() : null;
+
+  return (
+    <div
+      style={{
+        minHeight: 'clamp(52px, 7vh, 72px)',
+        paddingInline: 'clamp(20px, 3.2vw, 32px)',
+        paddingBlock: 'clamp(6px, 1vh, 12px)',
+        gap: 'clamp(10px, 1.8vw, 20px)',
+      }}
+      className="flex items-center bg-slate-950/85 backdrop-blur-xl rounded-full border-2 border-amber-400/50 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_24px_rgba(251,191,36,0.25)] ring-1 ring-amber-400/30 select-none max-w-[80vw] sm:max-w-none shrink-0 transition-all"
+    >
+      {/* Active Player (Current Turn 🔥) */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <span
+          className="text-amber-400 drop-shadow flex items-center justify-center shrink-0 animate-pulse"
+          style={{ fontSize: 'clamp(20px, 3vmin, 30px)' }}
+          title="Current Turn"
+        >
+          🔥
+        </span>
+
+        {/* Active Player Avatar with matching color ring */}
+        <div
+          style={{
+            width: 'clamp(32px, 4.6vmin, 48px)',
+            height: 'clamp(32px, 4.6vmin, 48px)',
+            backgroundColor: activeColor,
+            borderColor: activeColor,
+            fontSize: 'clamp(14px, 2vmin, 20px)',
+          }}
+          className="rounded-full flex items-center justify-center text-white font-display font-black border-2 shadow-md shrink-0 ring-2 ring-amber-400/90"
+        >
+          {activePlayer.finished ? '🏆' : activePlayer.isBot ? '🤖' : activeInitial}
+        </div>
+
+        {/* Active Player Name (Bold, High Contrast) */}
+        <span
+          style={{
+            fontSize: 'clamp(15px, 2.2vmin, 22px)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.7)',
+          }}
+          className="font-display font-black text-amber-300 drop-shadow truncate max-w-[95px] sm:max-w-[150px]"
+        >
+          {activeName}
+        </span>
+
+        {/* Active Player Card Count (Part 20: Universal Bigger Pill) */}
+        <CardCountPill
+          cardCount={activeCount}
+          finished={activePlayer.finished}
+          finishRank={activePlayer.finishRank}
+          playerColor={activeColor}
+        />
+      </div>
+
+      {/* Arrow Divider & Next Player */}
+      {nextPlayer && (
+        <>
+          <ArrowRight
+            style={{
+              width: 'clamp(20px, 2.8vmin, 28px)',
+              height: 'clamp(20px, 2.8vmin, 28px)',
+            }}
+            className="text-sky-400 shrink-0 mx-1"
+          />
+
+          {/* Next Player */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Next Player Avatar with matching color ring */}
+            <div
+              style={{
+                width: 'clamp(32px, 4.6vmin, 48px)',
+                height: 'clamp(32px, 4.6vmin, 48px)',
+                backgroundColor: nextColor,
+                borderColor: nextColor,
+                fontSize: 'clamp(14px, 2vmin, 20px)',
+              }}
+              className="rounded-full flex items-center justify-center text-white font-display font-black border-2 shadow-md shrink-0 ring-2 ring-sky-300/70"
+            >
+              {nextPlayer.finished ? '🏆' : nextPlayer.isBot ? '🤖' : nextInitial}
+            </div>
+
+            {/* Next Player Name */}
+            <span
+              style={{
+                fontSize: 'clamp(15px, 2.2vmin, 22px)',
+                textShadow: '0 1px 3px rgba(0,0,0,0.9), 0 2px 8px rgba(0,0,0,0.7)',
+              }}
+              className="font-display font-extrabold text-sky-200 drop-shadow truncate max-w-[90px] sm:max-w-[145px]"
+            >
+              {nextName}
+            </span>
+
+            {/* Next Player Card Count (Part 20: Universal Bigger Pill) */}
+            <CardCountPill
+              cardCount={nextCount}
+              finished={nextPlayer.finished}
+              finishRank={nextPlayer.finishRank}
+              playerColor={nextColor}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 export default function GamePage() {
@@ -177,6 +284,7 @@ export default function GamePage() {
     toggleColorBlindMode,
     reduceMotion,
     toggleReduceMotion,
+    addInGameNotification,
   } = useGameStore();
 
   const gameContainerRef = useRef(null);
@@ -184,14 +292,14 @@ export default function GamePage() {
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [focusedCardIndex, setFocusedCardIndex] = useState(0);
 
-  // Real-time debounced resize + orientationchange state for portrait mobile vs desktop/landscape
+  // Real-time debounced resize + orientation detection
   const [isPortraitMobile, setIsPortraitMobile] = useState(() => {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches;
   });
   const [dismissRotateOverlay, setDismissRotateOverlay] = useState(false);
 
-  // Part 14 Issue 2: Auto-rotate screen to landscape on mobile game start
+  // Auto-rotate screen to landscape on mobile game start (Part 14)
   useEffect(() => {
     try {
       if (window.screen?.orientation?.lock) {
@@ -307,7 +415,7 @@ export default function GamePage() {
     avatarColor: '#ef4444',
   };
 
-  // Compute who is next in rotation (from server nextPlayerId or client fallback)
+  // Compute who is next in rotation
   const resolvedNextPlayerId = React.useMemo(() => {
     if (!gameState || gameState.status !== 'playing' || players.length < 2) return null;
     if (gameState.nextPlayerId) return gameState.nextPlayerId;
@@ -326,7 +434,26 @@ export default function GamePage() {
 
   const isMeNext = !isMyTurn && !me.finished && resolvedNextPlayerId === playerId;
 
-  // Stable card click handler so UnoCard memoization prevents any re-render
+  // Secondary "Next Turn" callout just above the discard pile (Part 18)
+  const [showNextCallout, setShowNextCallout] = useState(false);
+  const prevTurnRef = useRef(null);
+
+  useEffect(() => {
+    if (gameState?.status === 'playing' && gameState.activePlayerId) {
+      if (prevTurnRef.current !== gameState.activePlayerId) {
+        setShowNextCallout(true);
+        const timer = setTimeout(() => setShowNextCallout(false), 3000);
+        prevTurnRef.current = gameState.activePlayerId;
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [gameState?.status, gameState?.activePlayerId]);
+
+  const hasPlayableCard = React.useMemo(() => {
+    return myHand.some((c) => isCardPlayableClient(c, myHand, gameState));
+  }, [myHand, gameState]);
+
+  // Stable card click handler
   const handleCardClick = useCallback(
     (card) => {
       if (!isMyTurn || me.finished) return;
@@ -346,7 +473,7 @@ export default function GamePage() {
     [isMyTurn, me.finished, myHand, gameState, playCard, setPendingWildCard]
   );
 
-  // Desktop Keyboard Navigation (ArrowLeft / ArrowRight / Enter to play / D to Draw / U for UNO)
+  // Desktop Keyboard Navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
@@ -386,14 +513,13 @@ export default function GamePage() {
   const isHost = gameState.hostId === playerId;
   const myFloatingReactions = floatingReactions.filter((r) => r.playerId === playerId);
 
-  // Rotate opponents relative to local player's bottom seat so clockwise goes Left -> Top -> Right
+  // Order opponents clockwise from local player's seat (index 0 = local player at bottom)
   const opponents =
     myIndex !== -1
       ? [...players.slice(myIndex + 1), ...players.slice(0, myIndex)]
       : players;
 
-  const opponentCount = opponents.length;
-  const assignedSeats = assignOpponentSeats(opponents);
+  const totalPlayers = Math.max(players.length, 2);
 
   const vulnerableOpponent = opponents.find(
     (p) => !p.finished && p.unoVulnerable && p.cardCount === 1
@@ -406,6 +532,22 @@ export default function GamePage() {
   const activeRemainingCount = gameState.activeRemainingCount ?? players.length;
   const isSurvivalMode =
     !me.finished && finishedCount > 0 && activeRemainingCount <= 2;
+
+  const survivalNotifiedRef = useRef(false);
+  useEffect(() => {
+    if (isSurvivalMode && !survivalNotifiedRef.current) {
+      survivalNotifiedRef.current = true;
+      addInGameNotification({
+        message: '⚔️ Last duel — play to survive!',
+        icon: '⚔️',
+        type: 'warning',
+        playerColor: '#ef4444',
+        durationMs: 3000,
+      });
+    } else if (!isSurvivalMode) {
+      survivalNotifiedRef.current = false;
+    }
+  }, [isSurvivalMode, addInGameNotification]);
 
   const handleLeaveGame = () => {
     leaveRoom();
@@ -421,60 +563,52 @@ export default function GamePage() {
   const authoritativeEndsAt = gameState.endsAt || gameState.turnDeadline;
   const handMid = (myHand.length - 1) / 2;
 
+  // Center of table ellipse
+  const centerYPercent = isPortraitMobile ? 39 : 42;
+  const rxPercent = isPortraitMobile
+    ? 38
+    : totalPlayers === 6
+    ? 42
+    : totalPlayers >= 4
+    ? 40
+    : 36;
+  const ryPercent = isPortraitMobile ? 26 : 30;
+
+  // Local player sits at 90° (bottom-center): angle 90° in screen coords (+Y is down)
+  const localPlayerSeatY = centerYPercent + ryPercent;
+
   return (
     <div ref={gameContainerRef} className="game-screen uno-safe-viewport select-none">
-      {/* Top Header Bar: Info (i) + Center Turn Flow Pill + Menu (☰) */}
+      {/* Part 18: Atmospheric Layered Ambient Background with Spotlight & Drifting Particles */}
+      <AmbientBackground />
+
+      {/* Top Header Bar: Clean Info & Turn Flow */}
       <header
         style={{ paddingBlock: '0.4vh', gap: 'var(--gap)' }}
-        className="z-30 flex items-center justify-between shrink-0"
+        className="z-30 flex items-center justify-between shrink-0 px-2 sm:px-4"
       >
-        {/* Top-Left: Diamond Timer ("01:00") + Room Code Pill (Part 14) */}
-        <div className="flex items-center gap-2">
-          <TurnTimer
-            variant="diamond"
-            endsAt={authoritativeEndsAt}
-            turnDeadline={authoritativeEndsAt}
-            serverNow={gameState.serverNow}
-            turnSequence={gameState.turnSequence}
-            totalTurnSeconds={60}
-            isTurn={gameState.status === 'playing'}
-            isActive={gameState.status === 'playing'}
-            isMyTurn={isMyTurn && !me.finished}
-            playAudioWarning={isMyTurn && !me.finished}
-          />
-
-          <div
-            style={{ fontSize: 'var(--font-xs)' }}
-            className="hidden sm:flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md border border-white/15 rounded-full px-3 py-1 shadow"
-          >
-            <span className="font-display font-black text-amber-400">
-              #{gameState.roomId}
-            </span>
-            <span className="text-slate-300 font-semibold">
-              {gameState.settings?.playerMode || `${players.length}P`} • R{gameState.currentRound}
-            </span>
-          </div>
-        </div>
-
-        {/* Center Turn Flow Indicator: Playing Now -> Up Next */}
+        {/* Top-Left: Room Code & Mode Badge (Part 16) */}
         <div
           style={{ fontSize: 'var(--font-xs)' }}
-          className="flex items-center gap-1.5 font-semibold bg-slate-900/90 backdrop-blur-md px-3 py-1 rounded-full border border-white/15 shadow-lg max-w-[62vw] truncate"
+          className="flex items-center gap-1.5 bg-slate-900/90 backdrop-blur-md border border-white/15 rounded-full px-3 py-1 shadow"
         >
-          <span className="inline-flex items-center gap-1 text-amber-300 font-extrabold truncate">
-            🔥 {activePlayerObj?.id === playerId ? 'You' : activePlayerObj?.name || 'Active'}
+          <span className="font-display font-black text-amber-400">
+            #{gameState.roomId}
           </span>
-          {nextPlayerObj && (
-            <>
-              <ArrowRight className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span className="inline-flex items-center gap-1 text-sky-300 font-bold truncate">
-                ⏭️ {nextPlayerObj.id === playerId ? 'You' : nextPlayerObj.name}
-              </span>
-            </>
-          )}
+          <span className="text-slate-300 font-semibold">
+            • {gameState.settings?.playerMode || `${players.length}P`} • R{gameState.currentRound}
+          </span>
         </div>
 
-        {/* Top-Right: Side-by-side Fullscreen (⛶) + Info (ℹ️) + Menu (☰) Buttons (Part 15) */}
+        {/* Center: Bigger Turn Flow Indicator Pill (Part 17) */}
+        <TurnIndicatorPill
+          activePlayer={activePlayerObj}
+          nextPlayer={nextPlayerObj}
+          playerId={playerId}
+          myHandCount={myHand.length}
+        />
+
+        {/* Top-Right: Side-by-side Fullscreen (⛶) + Info (ℹ️) + Menu (☰) Buttons */}
         <div className="relative flex items-center gap-2">
           <FullscreenButton containerRef={gameContainerRef} />
           <button
@@ -503,7 +637,7 @@ export default function GamePage() {
             <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          {/* Menu (☰) Dropdown Popover */}
+          {/* Menu Dropdown Popover */}
           <AnimatePresence>
             {showMenuModal && (
               <motion.div
@@ -598,869 +732,459 @@ export default function GamePage() {
         </div>
       </header>
 
-      {/* GAME TABLE: Portrait Mobile (3-Zone Flow) vs Desktop / Landscape (3x3 Grid) */}
-      {isPortraitMobile ? (
-        <div className="flex-1 flex flex-col justify-between min-h-0 w-full z-10 overflow-hidden py-1">
-          {/* ZONE 1 (Top ~18-20% height): Opponents horizontal strip */}
-          <div className="w-full flex items-center justify-around gap-2 px-2 py-1 overflow-x-auto shrink-0 z-20">
-            {opponents.map((opp) => {
-              const isOpponentNext =
-                !opp.finished &&
-                !opp.isTurn &&
-                (opp.isNext || resolvedNextPlayerId === opp.id);
+      {/* Part 16: REAL TABLE ARENA WITH ELLIPTICAL SEATING */}
+      <main className="relative flex-1 w-full h-full min-h-0 overflow-hidden">
+        {/* Subtle Elliptical Table Felt Backdrop */}
+        <div
+          aria-hidden="true"
+          style={{
+            width: 'min(94vw, 1060px)',
+            height: 'min(66vh, 520px)',
+            left: '50%',
+            top: `${centerYPercent}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+          className="absolute pointer-events-none rounded-[50%] bg-radial from-emerald-950/25 via-slate-900/45 to-slate-950/75 border border-emerald-500/20 shadow-[inset_0_0_90px_rgba(16,185,129,0.07),0_0_90px_rgba(0,0,0,0.65)]"
+        />
 
-              return (
-                <OpponentSeat
-                  key={opp.id}
-                  player={opp}
-                  variant="chip"
-                  opponentCount={opponentCount}
-                  isNext={isOpponentNext}
-                  isPortraitMobile={true}
-                  endsAt={authoritativeEndsAt}
-                  turnDeadline={authoritativeEndsAt}
-                  serverNow={gameState.serverNow}
-                  turnSequence={gameState.turnSequence}
-                  totalTurnSeconds={60}
-                  onCatchUno={catchUno}
-                />
-              );
-            })}
+        {/* OPPONENTS SEATED AROUND TABLE PERIMETER (Clean Circles Only) */}
+        {opponents.map((opp, idx) => {
+          const seatIndex = idx + 1; // 1 to totalPlayers - 1
+          const angleDeg = 90 + (360 / totalPlayers) * seatIndex;
+          const angleRad = (angleDeg * Math.PI) / 180;
+          const leftPct = 50 + Math.cos(angleRad) * rxPercent;
+          const topPct = centerYPercent + Math.sin(angleRad) * ryPercent;
+
+          const isOpponentNext =
+            !opp.finished &&
+            !opp.isTurn &&
+            (opp.isNext || resolvedNextPlayerId === opp.id);
+
+          return (
+            <div
+              key={opp.id}
+              style={{
+                position: 'absolute',
+                left: `${leftPct}%`,
+                top: `${topPct}%`,
+                transform: 'translate(-50%, -50%)',
+              }}
+              className="z-20 pointer-events-auto"
+            >
+              <OpponentSeat
+                player={opp}
+                isNext={isOpponentNext}
+                endsAt={authoritativeEndsAt}
+                turnDeadline={authoritativeEndsAt}
+                serverNow={gameState.serverNow}
+                turnSequence={gameState.turnSequence}
+                totalTurnSeconds={60}
+                onCatchUno={catchUno}
+              />
+            </div>
+          );
+        })}
+
+        {/* DEAD-CENTER FLOATING DISCARD PILE & DECK (No Container Box) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: `${centerYPercent}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+          className="z-10 flex flex-col items-center justify-center pointer-events-auto"
+        >
+          {/* Secondary "Next Turn" Callout just above Discard Pile (Part 18) */}
+          <AnimatePresence>
+            {showNextCallout && nextPlayerObj && (
+              <motion.div
+                initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.95 }}
+                transition={{ duration: 0.25 }}
+                style={{ fontSize: 'clamp(12px, 1.6vmin, 15px)' }}
+                className="mb-1 px-3 py-0.5 rounded-full bg-slate-900/90 backdrop-blur-md border border-sky-400/50 text-sky-200 font-display font-bold shadow-lg flex items-center gap-1.5 pointer-events-none z-20"
+              >
+                <span>Next:</span>
+                <span className="text-white font-extrabold">{nextPlayerObj.name}</span>
+                <span className="text-sky-400 text-sm font-black">➜</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Direction Indicator */}
+          <DirectionSwirl direction={gameState.direction} />
+
+          {/* Suit Indicator Pill */}
+          <div
+            style={{ fontSize: 'var(--font-xs)' }}
+            className={`px-3 py-0.5 rounded-full border-2 font-display font-black uppercase tracking-wider shadow-lg mb-1.5 transition-colors z-20 ${activeColorStyle.badge}`}
+          >
+            Suit: {gameState.activeColor}
           </div>
 
-          {/* ZONE 2 (Middle ~42-45% height): Center Table Arena (Draw + Discard centered) */}
-          <main className="flex-1 flex flex-col items-center justify-center relative min-h-0 py-1">
-            {/* Survival / Finished Status Banner */}
-            {me.finished && (
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="mb-1 px-3 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-display font-bold text-xs flex items-center gap-1.5 shadow-lg"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Finished 🏆 Rank #{me.finishRank}!
-              </motion.div>
-            )}
-
-            {isSurvivalMode && (
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                className="mb-1 px-3 py-0.5 rounded-full bg-rose-600/25 border border-rose-400 text-rose-200 font-display font-bold text-xs flex items-center gap-1.5 shadow-lg animate-pulse"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-300" /> Last duel — play to survive!
-              </motion.div>
-            )}
-
-            {/* Sleek Center Table Card Arena */}
-            <div
-              className={`relative px-4 py-2.5 rounded-3xl bg-slate-900/80 backdrop-blur-md border transition-all duration-500 flex flex-col items-center justify-center ${activeColorStyle.circleBorder}`}
-            >
-              {/* Part 14: Green Swirling Direction Indicator with REVERSED pop-up */}
-              <DirectionSwirl direction={gameState.direction} />
-
-              {/* Suit Indicator Pill */}
-              <div
-                className={`px-2.5 py-0.5 rounded-full border text-[11px] font-display font-black uppercase tracking-wider mb-1 transition-colors z-20 ${activeColorStyle.badge}`}
-              >
-                Suit: {gameState.activeColor}
+          {/* Draw Pile & Discard Pile Side-by-Side */}
+          <div
+            style={{ gap: 'clamp(14px, 3.5vmin, 32px)' }}
+            className="flex items-center justify-center"
+          >
+            {/* Draw Pile (Deck) */}
+            <div className="flex flex-col items-center">
+              <div className="relative">
+                <UnoCard
+                  faceDown
+                  size="center"
+                  disabled={!isMyTurn || me.finished}
+                  onClick={() => isMyTurn && !me.finished && drawCard()}
+                  className={
+                    isMyTurn && !me.finished
+                      ? 'ring-4 ring-emerald-400/85 shadow-[0_0_28px_rgba(16,185,129,0.65)] hover:scale-105 cursor-pointer transition-all'
+                      : ''
+                  }
+                />
+                <span
+                  style={{ fontSize: 'clamp(0.6rem, 1vmin, 0.72rem)' }}
+                  className="absolute -top-1.5 -left-1.5 px-2 py-0.5 rounded-full bg-slate-900 border border-white/20 font-extrabold text-slate-200 flex items-center gap-0.5 shadow-md"
+                >
+                  <Layers className="w-2.5 h-2.5 text-amber-400" /> Deck
+                </span>
               </div>
 
-              {/* Floating Attribution Banner */}
-              <div className="h-4 flex items-center justify-center mb-1">
-                <AnimatePresence>
-                  {lastPlayedAnnouncement && (
+              <button
+                type="button"
+                disabled={!isMyTurn || me.finished}
+                onClick={() => isMyTurn && !me.finished && drawCard()}
+                style={{
+                  minWidth: 'clamp(64px, 8vw, 110px)',
+                  padding: '0.3em 0.8em',
+                  fontSize: 'var(--font-xs)',
+                }}
+                className={`mt-1.5 rounded-xl font-bold transition flex items-center justify-center gap-1 ${
+                  isMyTurn && !me.finished
+                    ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow cursor-pointer'
+                    : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                {gameState.hasDrawnThisTurn ? (
+                  <>
+                    <SkipForward className="w-3 h-3" /> Pass
+                  </>
+                ) : (
+                  'Draw'
+                )}
+              </button>
+            </div>
+
+            {/* Discard Pile */}
+            <div className="flex flex-col items-center">
+              <div
+                className={`relative p-0.5 rounded-2xl transition-all ${
+                  isTopWild ? activeColorStyle.glowRing : ''
+                }`}
+              >
+                <AnimatePresence mode="popLayout">
+                  {gameState.topCard && (
                     <motion.div
-                      key={lastPlayedAnnouncement.announcementId}
-                      initial={{ opacity: 0, y: 5, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -5, scale: 0.9 }}
-                      className="px-2 py-0.5 rounded-full bg-slate-950/95 border border-amber-400/50 text-amber-300 font-display font-bold text-[11px] shadow"
+                      key={gameState.topCard.id}
+                      initial={{ scale: 1.3, y: -20, rotate: -8, opacity: 0 }}
+                      animate={{ scale: 1.02, y: 0, rotate: 2, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 280, damping: 20 }}
                     >
-                      🃏 {lastPlayedAnnouncement.playerName}
+                      <UnoCard card={gameState.topCard} size="center" disabled />
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
-
-              {/* Draw Pile & Discard Pile */}
-              <div
-                style={{ gap: 'clamp(12px, 4vw, 24px)' }}
-                className="flex items-center justify-center"
+              <span
+                style={{ fontSize: 'var(--font-xs)' }}
+                className="mt-1.5 font-bold text-slate-200 drop-shadow"
               >
-                {/* Draw Pile (Deck) */}
-                <div className="flex flex-col items-center">
-                  <div className="relative">
-                    <UnoCard
-                      faceDown
-                      size="center"
-                      disabled={!isMyTurn || me.finished}
-                      onClick={() => isMyTurn && !me.finished && drawCard()}
-                      className={
-                        isMyTurn && !me.finished
-                          ? 'ring-4 ring-emerald-400/85 shadow-[0_0_20px_rgba(16,185,129,0.55)]'
-                          : ''
-                      }
-                    />
-                    <span className="absolute -top-1.5 -left-1.5 px-1.5 py-0.5 rounded-full bg-slate-900 border border-white/20 text-[10px] font-extrabold text-slate-200 flex items-center gap-0.5 shadow">
-                      <Layers className="w-2.5 h-2.5 text-amber-400" /> Deck
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={!isMyTurn || me.finished}
-                    onClick={() => isMyTurn && !me.finished && drawCard()}
-                    className={`mt-1.5 px-3 py-1 rounded-xl text-xs font-bold transition uno-tap-target flex items-center justify-center gap-1 ${
-                      isMyTurn && !me.finished
-                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow cursor-pointer'
-                        : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {gameState.hasDrawnThisTurn ? (
-                      <>
-                        <SkipForward className="w-3 h-3" /> Pass
-                      </>
-                    ) : (
-                      'Draw'
-                    )}
-                  </button>
-                </div>
-
-                {/* Top Discard Pile */}
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`relative p-0.5 rounded-2xl transition-all ${
-                      isTopWild ? activeColorStyle.glowRing : ''
-                    }`}
-                  >
-                    <AnimatePresence mode="popLayout">
-                      {gameState.topCard && (
-                        <motion.div
-                          key={gameState.topCard.id}
-                          initial={{ scale: 1.25, y: -16, rotate: -8, opacity: 0 }}
-                          animate={{ scale: 1.02, y: 0, rotate: 2, opacity: 1 }}
-                          transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-                        >
-                          <UnoCard card={gameState.topCard} size="center" disabled />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <span className="mt-1.5 text-xs font-bold text-slate-300">
-                    Discard
-                  </span>
-                </div>
-              </div>
-
-              {/* Turn Direction Below Piles */}
-              <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-950/80 border border-white/15 text-[11px] font-bold text-slate-200">
-                {gameState.direction === 1 ? (
-                  <>
-                    <RotateCw className="w-3 h-3 text-emerald-400 animate-spin" style={{ animationDuration: '6s' }} />
-                    <span>Clockwise ↻</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-                    <span>Counter-Clockwise ↺</span>
-                  </>
-                )}
-              </div>
-
-              {/* Floating "UNO!" Call Button */}
-              {!me.finished && myHand.length <= 2 && myHand.length > 0 && !me.saidUno && (
-                <motion.button
-                  type="button"
-                  initial={{ scale: 0.85 }}
-                  animate={{ scale: [1, 1.08, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.85 }}
-                  onClick={callUno}
-                  className="uno-tap-target absolute -bottom-3 -right-2 px-3 py-1 rounded-full bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 text-slate-950 font-display font-black shadow-[0_0_20px_rgba(239,68,68,0.8)] border-2 border-white flex items-center justify-center gap-1 cursor-pointer z-30 text-xs"
-                >
-                  <Flame className="w-3.5 h-3.5 fill-slate-950" /> UNO!
-                </motion.button>
-              )}
-
-              {/* Catch Opponent UNO Penalty Button */}
-              {vulnerableOpponent && (
-                <motion.button
-                  type="button"
-                  initial={{ scale: 0.85 }}
-                  animate={{ scale: [1, 1.06, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.8 }}
-                  onClick={() => catchUno(vulnerableOpponent.id)}
-                  className="uno-tap-target absolute -bottom-3 -left-2 px-2.5 py-1 rounded-full bg-gradient-to-r from-rose-600 to-pink-600 text-white font-display font-black shadow-xl border-2 border-white flex items-center justify-center gap-1 cursor-pointer z-30 text-xs"
-                >
-                  <Zap className="w-3 h-3" /> Catch {vulnerableOpponent.name}
-                </motion.button>
-              )}
+                Discard
+              </span>
             </div>
-          </main>
+          </div>
 
-          {/* ZONE 3 (Bottom ~35-38% height): Local Player & Horizontally Scrollable Hand */}
-          <section
-            className={`w-full rounded-t-3xl border-t border-x bg-slate-900/95 backdrop-blur-xl transition-all duration-300 flex flex-col justify-between shrink-0 z-20 pb-safe ${
-              isMyTurn && !me.finished
-                ? 'border-yellow-400/75 shadow-[0_-5px_30px_rgba(250,204,21,0.2)]'
-                : isMeNext
-                ? 'border-sky-300/60'
-                : 'border-white/15'
-            }`}
+          {/* Turn Direction Badge Below Discard Pile */}
+          <motion.div
+            key={`dir_${gameState.direction}`}
+            initial={{ scale: 0.85, rotate: gameState.direction === 1 ? -25 : 25 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+            style={{ fontSize: 'var(--font-xs)' }}
+            className="mt-2 inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-slate-950/85 border border-white/20 font-bold text-slate-100 shadow-md backdrop-blur-sm"
           >
-            {/* Compact Header & Timer Strip */}
-            <div className="px-3 pt-2 pb-1 flex items-center justify-between gap-2 border-b border-white/10">
-              <div className="relative flex items-center gap-2 min-w-0">
-                {/* Floating Emoji Reactions */}
-                <div className="absolute -top-7 left-2 flex justify-center pointer-events-none z-30">
-                  <AnimatePresence>
-                    {myFloatingReactions.map((r) => (
-                      <motion.span
-                        key={r.id}
-                        initial={{ opacity: 0, y: 10, scale: 0.6 }}
-                        animate={{ opacity: 1, y: -24, scale: 1.35 }}
-                        exit={{ opacity: 0, y: -40, scale: 0.8 }}
-                        className="text-2xl"
-                      >
-                        {r.emoji}
-                      </motion.span>
-                    ))}
-                  </AnimatePresence>
-                </div>
+            {gameState.direction === 1 ? (
+              <>
+                <RotateCw className="w-3 h-3 text-emerald-400 animate-spin" style={{ animationDuration: '5s' }} />
+                <span>Clockwise ↻</span>
+              </>
+            ) : (
+              <>
+                <RotateCcw className="w-3 h-3 text-amber-400 animate-spin" style={{ animationDuration: '5s' }} />
+                <span>Counter-Clockwise ↺</span>
+              </>
+            )}
+          </motion.div>
 
-                <TurnTimer
-                  variant="ring"
-                  endsAt={authoritativeEndsAt}
-                  turnDeadline={authoritativeEndsAt}
-                  serverNow={gameState.serverNow}
-                  turnSequence={gameState.turnSequence}
-                  totalTurnSeconds={60}
-                  isTurn={isMyTurn && !me.finished}
-                  isActive={isMyTurn && !me.finished}
-                  isMyTurn={isMyTurn && !me.finished}
-                  size={38}
-                  strokeWidth={3.5}
-                >
-                  <div
-                    style={{ backgroundColor: me.avatarColor || '#ef4444' }}
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-white font-display font-black text-xs relative ${
-                      isMyTurn && !me.finished
-                        ? 'border-2 border-yellow-200 shadow-[0_0_12px_rgba(250,204,21,0.65)]'
-                        : isMeNext
-                        ? 'border border-sky-300/80 shadow-[0_0_8px_rgba(56,189,248,0.35)]'
-                        : 'border border-white/60'
-                    }`}
-                  >
-                    {me.finished ? '🏆' : (me.name || 'Y').trim().charAt(0).toUpperCase()}
-                    {isHost && (
-                      <span className="absolute -top-1 -left-1 bg-amber-400 text-slate-950 p-0.5 rounded-full shadow">
-                        <Crown className="w-2 h-2" />
-                      </span>
-                    )}
-                    {!me.finished && myHand.length === 1 && (
-                      <span
-                        className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 text-white border border-white flex items-center justify-center text-[7px]"
-                        title="UNO!"
-                      >
-                        🔴
-                      </span>
-                    )}
-                  </div>
-                </TurnTimer>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-display font-bold text-xs text-white truncate max-w-[85px]">
-                      {me.name}
-                    </span>
-                    {!me.finished && (
-                      <span className="px-1.5 py-0.2 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-300 font-mono font-bold text-[10px] shadow shrink-0">
-                        🃏 {myHand.length}
-                      </span>
-                    )}
-                    {me.finished ? (
-                      <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-bold">
-                        🏆 #{me.finishRank}
-                      </span>
-                    ) : isMyTurn ? (
-                      <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-display font-black text-[10px] uppercase">
-                        Your Turn
-                      </span>
-                    ) : isMeNext ? (
-                      <span className="px-1.5 py-0.2 rounded-full bg-sky-400/20 border border-sky-300/60 text-sky-200 text-[10px] font-bold uppercase">
-                        Up Next
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="text-[10px] font-bold text-slate-400 truncate">
-                    {me.finished
-                      ? 'Safe! Watching...'
-                      : isMyTurn
-                      ? '🔥 Tap a card or Deck'
-                      : isMeNext
-                      ? `⏭️ After ${activePlayerObj?.name || 'opponent'}`
-                      : `Waiting for ${activePlayerObj?.name || 'opponent'}...`}
-                  </div>
-                </div>
-              </div>
-
-              {/* Turn Countdown Display */}
-              <div className="shrink-0 flex items-center">
-                <TurnTimer
-                  variant="compact"
-                  endsAt={authoritativeEndsAt}
-                  turnDeadline={authoritativeEndsAt}
-                  serverNow={gameState.serverNow}
-                  turnSequence={gameState.turnSequence}
-                  totalTurnSeconds={60}
-                  isTurn={gameState.status === 'playing'}
-                  isActive={gameState.status === 'playing'}
-                  isMyTurn={isMyTurn && !me.finished}
-                  playAudioWarning={isMyTurn && !me.finished}
-                />
-              </div>
-            </div>
-
-            {/* Horizontally Scrollable Hand with Edge Mask */}
-            <div
-              ref={handScrollRef}
-              style={{
-                touchAction: 'pan-x',
-                scrollPadding: '0 16px',
-                WebkitOverflowScrolling: 'touch',
-              }}
-              className="hand-scroll hand-fade-mask hand-wrapper flex items-center overflow-x-auto overflow-y-hidden w-full px-4 pt-4 pb-3"
-            >
-              {me.finished ? (
-                <div className="text-center py-3 text-emerald-300 font-display font-bold text-xs w-full">
-                  🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
-                </div>
-              ) : (
-                <div className="flex items-end min-w-full justify-start sm:justify-center px-3 shrink-0">
-                  <AnimatePresence>
-                    {myHand.map((card, idx) => {
-                      const playable =
-                        isMyTurn && isCardPlayableClient(card, myHand, gameState);
-
-                      return (
-                        <div
-                          key={card.id}
-                          style={{
-                            marginLeft: idx === 0 ? '0px' : 'calc(var(--card-w) * -0.35)',
-                            zIndex: idx + 1,
-                            touchAction: 'pan-x',
-                          }}
-                          className="hand-card-slot shrink-0 snap-center"
-                        >
-                          <UnoCard
-                            card={card}
-                            size="md"
-                            playable={playable}
-                            focused={isMyTurn && focusedCardIndex === idx}
-                            disabled={!isMyTurn}
-                            onCardSelect={handleCardClick}
-                          />
-                        </div>
-                      );
-                    })}
-                  </AnimatePresence>
-                  <div className="w-6 shrink-0 pointer-events-none" aria-hidden="true" />
-                </div>
-              )}
-            </div>
-          </section>
+          {/* Turn Hints on/near Discard Pile (Part 18 Specification) */}
+          <TurnHint
+            isMyTurn={isMyTurn && !me.finished}
+            hasPlayableCard={hasPlayableCard}
+            turnSequence={gameState.turnSequence}
+            isAwaitingColor={gameState.awaitingColorChoice}
+            hasDrawn={gameState.hasDrawnThisTurn}
+            cardCount={myHand.length}
+            saidUno={me.saidUno}
+          />
         </div>
-      ) : (
-        /* Desktop / Landscape Mode: 3x3 .uno-table-grid */
-        <div className="uno-table-grid z-10">
-          {/* Opponent Seats mapped directly to Named Grid Areas (top-left, top-center, top-right, mid-left, mid-right) */}
-          {assignedSeats.map(({ player: opp, seatPosition, gridAreaClass }) => {
-            const isOpponentNext =
-              !opp.finished &&
-              !opp.isTurn &&
-              (opp.isNext || resolvedNextPlayerId === opp.id);
 
-            return (
-              <div
-                key={opp.id}
-                className={`${gridAreaClass} flex items-center justify-center min-w-0 min-h-0`}
-              >
-                <OpponentSeat
-                  player={opp}
-                  seatPosition={seatPosition}
-                  opponentCount={opponentCount}
-                  isNext={isOpponentNext}
-                  isPortraitMobile={false}
-                  endsAt={authoritativeEndsAt}
-                  turnDeadline={authoritativeEndsAt}
-                  serverNow={gameState.serverNow}
-                  turnSequence={gameState.turnSequence}
-                  totalTurnSeconds={60}
-                  onCatchUno={catchUno}
-                />
-              </div>
-            );
-          })}
-
-          {/* DEAD-CENTER CIRCULAR PLAY AREA (grid-area: center) */}
-          <main className="grid-area-center relative flex flex-col items-center justify-center min-w-0 min-h-0">
-            {/* Survival / Finished Status Banner above Center Circle */}
-            {me.finished && (
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                style={{ fontSize: 'var(--font-xs)' }}
-                className="mb-1 px-3 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-display font-bold flex items-center gap-1.5 shadow-lg"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" /> Finished 🏆 Rank #{me.finishRank}!
-              </motion.div>
-            )}
-
-            {isSurvivalMode && (
-              <motion.div
-                initial={{ scale: 0.9, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                style={{ fontSize: 'var(--font-xs)' }}
-                className="mb-1 px-3 py-0.5 rounded-full bg-rose-600/25 border border-rose-400 text-rose-200 font-display font-bold flex items-center gap-1.5 shadow-lg animate-pulse"
-              >
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-300" /> Last duel — play to survive!
-              </motion.div>
-            )}
-
-            {/* Glowing Center Circle (Fluid width/height via --arena-width / --arena-height) */}
-            <div
-              style={{
-                width: 'var(--arena-width)',
-                height: 'var(--arena-height)',
-                padding: 'clamp(0.45rem, 1.4vmin, 1rem)',
-              }}
-              className={`relative rounded-full bg-radial from-sky-950/75 via-slate-900/90 to-slate-950/95 border-4 transition-all duration-500 flex flex-col items-center justify-center ${activeColorStyle.circleBorder}`}
-            >
-              {/* Part 14: Green Swirling Direction Indicator with REVERSED pop-up */}
-              <DirectionSwirl direction={gameState.direction} />
-
-              {/* Active Suit Badge at Top of Circle */}
-              <div
-                style={{ fontSize: 'var(--font-xs)' }}
-                className={`px-3 py-0.5 rounded-full border-2 font-display font-black uppercase tracking-wider shadow-lg mb-1 transition-colors z-20 ${activeColorStyle.badge}`}
-              >
-                Suit: {gameState.activeColor}
-              </div>
-
-              {/* Floating Attribution Banner */}
-              <div className="h-4 flex items-center justify-center mb-1">
-                <AnimatePresence>
-                  {lastPlayedAnnouncement && (
-                    <motion.div
-                      key={lastPlayedAnnouncement.announcementId}
-                      initial={{ opacity: 0, y: 5, scale: 0.9 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -5, scale: 0.9 }}
-                      style={{ fontSize: 'var(--font-xs)' }}
-                      className="px-2 py-0.5 rounded-full bg-slate-950/95 border border-amber-400/50 text-amber-300 font-display font-bold shadow"
-                    >
-                      🃏 {lastPlayedAnnouncement.playerName}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* Draw Pile & Top Discard Card Dead Center */}
-              <div
-                style={{ gap: 'clamp(0.85rem, 3vmin, 2.25rem)' }}
-                className="flex items-center justify-center"
-              >
-                {/* Draw Pile */}
-                <div className="flex flex-col items-center">
-                  <div className="relative">
-                    <UnoCard
-                      faceDown
-                      size="center"
-                      disabled={!isMyTurn || me.finished}
-                      onClick={() => isMyTurn && !me.finished && drawCard()}
-                      className={
-                        isMyTurn && !me.finished
-                          ? 'ring-4 ring-emerald-400/85 shadow-[0_0_25px_rgba(16,185,129,0.55)]'
-                          : ''
-                      }
-                    />
-                    <span
-                      style={{ fontSize: 'clamp(0.55rem, 1vmin, 0.7rem)' }}
-                      className="absolute -top-1.5 -left-1.5 px-1.5 py-0.5 rounded-full bg-slate-900 border border-white/20 font-extrabold text-slate-200 flex items-center gap-0.5 shadow"
-                    >
-                      <Layers className="w-2.5 h-2.5 text-amber-400" /> Deck
-                    </span>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={!isMyTurn || me.finished}
-                    onClick={() => isMyTurn && !me.finished && drawCard()}
-                    style={{
-                      minWidth: 'clamp(64px, 8vw, 110px)',
-                      padding: '0.35em 0.9em',
-                      fontSize: 'var(--font-xs)',
-                    }}
-                    className={`mt-1 rounded-xl font-bold transition flex items-center justify-center gap-1 ${
-                      isMyTurn && !me.finished
-                        ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow cursor-pointer'
-                        : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    {gameState.hasDrawnThisTurn ? (
-                      <>
-                        <SkipForward className="w-3 h-3" /> Pass
-                      </>
-                    ) : (
-                      'Draw'
-                    )}
-                  </button>
-                </div>
-
-                {/* Top Discard Pile */}
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`relative p-0.5 rounded-2xl transition-all ${
-                      isTopWild ? activeColorStyle.glowRing : ''
-                    }`}
-                  >
-                    <AnimatePresence mode="popLayout">
-                      {gameState.topCard && (
-                        <motion.div
-                          key={gameState.topCard.id}
-                          initial={{ scale: 1.32, y: -22, rotate: -10, opacity: 0 }}
-                          animate={{ scale: 1.04, y: 0, rotate: 3, opacity: 1 }}
-                          transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-                        >
-                          <UnoCard card={gameState.topCard} size="center" disabled />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <span
-                    style={{ fontSize: 'var(--font-xs)' }}
-                    className="mt-1 font-bold text-slate-200"
-                  >
-                    Discard
-                  </span>
-                </div>
-              </div>
-
-              {/* Curved Turn Direction Indicator Below Discard Pile (Flips on Reverse) */}
-              <motion.div
-                key={`dir_${gameState.direction}`}
-                initial={{ scale: 0.85, rotate: gameState.direction === 1 ? -25 : 25 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-                style={{ fontSize: 'var(--font-xs)' }}
-                className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-900/95 border border-white/15 font-bold text-slate-100 shadow"
-              >
-                {gameState.direction === 1 ? (
-                  <>
-                    <RotateCw
-                      className="w-3 h-3 text-emerald-400 animate-spin"
-                      style={{ animationDuration: '5s' }}
-                    />
-                    <span>Clockwise ↻</span>
-                  </>
-                ) : (
-                  <>
-                    <RotateCcw
-                      className="w-3 h-3 text-amber-400 animate-spin"
-                      style={{ animationDuration: '5s' }}
-                    />
-                    <span>Counter-Clockwise ↺</span>
-                  </>
-                )}
-              </motion.div>
-
-              {/* Floating "UNO" Call Button at Bottom-Right of Center Play Area */}
-              {!me.finished && myHand.length <= 2 && myHand.length > 0 && !me.saidUno && (
-                <motion.button
-                  type="button"
-                  initial={{ scale: 0.85 }}
-                  animate={{ scale: [1, 1.08, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.85 }}
-                  onClick={callUno}
-                  style={{
-                    minWidth: 'clamp(76px, 9vw, 125px)',
-                    padding: '0.5em 1.1em',
-                    fontSize: 'var(--font-sm)',
-                  }}
-                  className="uno-tap-target absolute -bottom-2.5 -right-2 sm:right-0 rounded-full bg-gradient-to-r from-red-600 via-amber-500 to-yellow-400 text-slate-950 font-display font-black shadow-[0_0_25px_rgba(239,68,68,0.8)] border-2 border-white flex items-center justify-center gap-1 cursor-pointer z-20"
+        {/* LOCAL PLAYER SEATED AT BOTTOM-CENTER (Part 18 Horizontal Chip: Circle on left, Name & Count on right) */}
+        <div
+          style={{
+            position: 'absolute',
+            left: '50%',
+            top: `${localPlayerSeatY}%`,
+            transform: 'translate(-50%, -50%)',
+          }}
+          className={`z-20 flex items-center gap-2 pointer-events-auto select-none transition-all duration-300 ${
+            isMyTurn && !me.finished
+              ? 'opacity-100 scale-105 z-30'
+              : isMeNext
+              ? 'opacity-95 z-20'
+              : 'opacity-75 hover:opacity-100 z-10'
+          }`}
+        >
+          {/* Floating Emoji Reactions for Local Player */}
+          <div className="absolute -top-7 inset-x-0 flex justify-center pointer-events-none z-40">
+            <AnimatePresence>
+              {myFloatingReactions.map((r) => (
+                <motion.span
+                  key={r.id}
+                  initial={{ opacity: 0, y: 10, scale: 0.6 }}
+                  animate={{ opacity: 1, y: -24, scale: 1.35 }}
+                  exit={{ opacity: 0, y: -40, scale: 0.8 }}
+                  transition={{ duration: 1.4 }}
+                  style={{ fontSize: 'clamp(18px, 2.5vmin, 26px)' }}
+                  className="drop-shadow-lg"
                 >
-                  <Flame className="w-4 h-4 fill-slate-950" /> UNO!
-                </motion.button>
-              )}
-
-              {/* Catch Opponent UNO Penalty Button */}
-              {vulnerableOpponent && (
-                <motion.button
-                  type="button"
-                  initial={{ scale: 0.85 }}
-                  animate={{ scale: [1, 1.06, 1] }}
-                  transition={{ repeat: Infinity, duration: 0.8 }}
-                  onClick={() => catchUno(vulnerableOpponent.id)}
-                  style={{
-                    minWidth: 'clamp(80px, 10vw, 135px)',
-                    padding: '0.45em 1em',
-                    fontSize: 'var(--font-xs)',
-                  }}
-                  className="uno-tap-target absolute -bottom-2.5 -left-2 sm:left-0 rounded-full bg-gradient-to-r from-rose-600 to-pink-600 text-white font-display font-black shadow-xl border-2 border-white flex items-center justify-center gap-1 cursor-pointer z-20"
-                >
-                  <Zap className="w-3.5 h-3.5" /> Catch {vulnerableOpponent.name}
-                </motion.button>
-              )}
-            </div>
-          </main>
-
-          {/* BOTTOM-LEFT: Settings (⚙️) Button (Part 14) */}
-          <div className="grid-area-bottom-left flex items-end justify-start p-2 pointer-events-auto z-20">
-            <SettingsButton onClick={() => setShowMenuModal(true)} />
+                  {r.emoji}
+                </motion.span>
+              ))}
+            </AnimatePresence>
           </div>
 
-          {/* BOTTOM-CENTER: Local Player Avatar + Timer + Horizontally Fanned Face-Up Hand (grid-area: hand) */}
-          <section
-            style={{
-              maxWidth: '92vw',
-              paddingInline: 'clamp(0.6rem, 1.8vw, 1.4rem)',
-              paddingBlock: 'clamp(0.4rem, 1.1vh, 0.8rem)',
-            }}
-            className={`grid-area-hand z-20 w-full mx-auto rounded-3xl backdrop-blur-xl border shadow-2xl transition-all duration-300 flex flex-col justify-between min-w-0 ${
-              isMyTurn && !me.finished
-                ? 'bg-slate-900/95 border-yellow-400/75 ring-2 ring-yellow-400/40 shadow-[0_0_35px_rgba(250,204,21,0.25)]'
-                : isMeNext
-                ? 'bg-slate-900/90 border-sky-300/60 ring-2 ring-sky-300/35'
-                : 'bg-slate-900/90 border-white/15'
-            }`}
-          >
-            {/* Local Player Header + Isolated 60s Countdown Bar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-              <div className="relative flex items-center gap-2.5">
-                {/* Floating Emoji Reactions for Local Player */}
-                <div className="absolute -top-8 left-2 flex justify-center pointer-events-none z-30">
-                  <AnimatePresence>
-                    {myFloatingReactions.map((r) => (
-                      <motion.span
-                        key={r.id}
-                        initial={{ opacity: 0, y: 10, scale: 0.6 }}
-                        animate={{ opacity: 1, y: -24, scale: 1.35 }}
-                        exit={{ opacity: 0, y: -40, scale: 0.8 }}
-                        className="text-2xl"
-                      >
-                        {r.emoji}
-                      </motion.span>
-                    ))}
-                  </AnimatePresence>
-                </div>
-
-                <div className="relative flex items-center justify-center">
-                  <TurnTimer
-                    variant="ring"
-                    endsAt={authoritativeEndsAt}
-                    turnDeadline={authoritativeEndsAt}
-                    serverNow={gameState.serverNow}
-                    turnSequence={gameState.turnSequence}
-                    totalTurnSeconds={60}
-                    isTurn={isMyTurn && !me.finished}
-                    isActive={isMyTurn && !me.finished}
-                    isMyTurn={isMyTurn && !me.finished}
-                    size={50}
-                    strokeWidth={4}
-                  >
-                    <div
-                      style={{
-                        width: 'var(--avatar-size)',
-                        height: 'var(--avatar-size)',
-                        backgroundColor: me.avatarColor || '#ef4444',
-                        fontSize: 'var(--font-base)',
-                      }}
-                      className={`rounded-full flex items-center justify-center text-white font-display font-black shadow relative transition-all ${
-                        isMyTurn && !me.finished
-                          ? 'border-2 border-yellow-200 shadow-[0_0_18px_rgba(250,204,21,0.65)]'
-                          : isMeNext
-                          ? 'border-2 border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.35)]'
-                          : 'border-2 border-white/60'
-                      }`}
-                    >
-                      {me.finished ? '🏆' : (me.name || 'Y').trim().charAt(0).toUpperCase()}
-                      {isHost && (
-                        <span className="absolute -top-1 -left-1 bg-amber-400 text-slate-950 p-0.5 rounded-full">
-                          <Crown className="w-2.5 h-2.5" />
-                        </span>
-                      )}
-                      {/* UNO Symbol Badge (🔴) ONLY when local player has 1 card */}
-                      {!me.finished && myHand.length === 1 && (
-                        <span
-                          className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-600 text-white border-2 border-white shadow-lg flex items-center justify-center text-[10px]"
-                          title="UNO!"
-                        >
-                          🔴
-                        </span>
-                      )}
-                    </div>
-                  </TurnTimer>
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      style={{ fontSize: 'var(--font-sm)' }}
-                      className="font-display font-bold text-white"
-                    >
-                      {me.name} (You)
-                    </span>
-                    {!me.finished && (
-                      <span
-                        style={{ fontSize: 'var(--font-xs)' }}
-                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-300 font-mono font-bold shadow"
-                        title={`${myHand.length} cards in hand`}
-                      >
-                        🃏 {myHand.length}
-                      </span>
-                    )}
-                    {me.finished && (
-                      <span
-                        style={{ fontSize: 'var(--font-xs)' }}
-                        className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 font-bold"
-                      >
-                        Finished 🏆 #{me.finishRank}
-                      </span>
-                    )}
-                    {!me.finished && isMyTurn && (
-                      <span
-                        style={{ fontSize: 'var(--font-xs)' }}
-                        className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 font-display font-black uppercase tracking-wider"
-                      >
-                        Your Turn
-                      </span>
-                    )}
-                    {!me.finished && isMeNext && (
-                      <span
-                        style={{ fontSize: 'var(--font-xs)' }}
-                        className="px-2 py-0.5 rounded-full bg-sky-400/20 border border-sky-300/60 text-sky-200 font-display font-bold uppercase tracking-wider"
-                      >
-                        Up Next
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    style={{ fontSize: 'var(--font-xs)' }}
-                    className={`font-extrabold ${
-                      me.finished
-                        ? 'text-emerald-400'
-                        : isMyTurn
-                        ? 'text-amber-300'
-                        : isMeNext
-                        ? 'text-sky-300'
-                        : 'text-slate-400'
-                    }`}
-                  >
-                    {me.finished
-                      ? 'Safe! Watching remaining players finish...'
-                      : isMyTurn
-                      ? '🔥 Tap a glowing card to play or click Deck to draw'
-                      : isMeNext
-                      ? `⏭️ Up next after ${activePlayerObj?.name || 'opponent'}`
-                      : `Waiting for ${activePlayerObj?.name || 'opponent'}...`}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Isolated 60-Second Progress Bar & Clock (Ticks reliably from server endsAt) */}
+          {/* Left: Local Player Avatar Circle with Active Turn Ring + Strong Glow */}
+          <div className="relative flex items-center justify-center shrink-0">
             <TurnTimer
-              variant="bar"
+              variant="ring"
               endsAt={authoritativeEndsAt}
               turnDeadline={authoritativeEndsAt}
               serverNow={gameState.serverNow}
               turnSequence={gameState.turnSequence}
               totalTurnSeconds={60}
-              isTurn={gameState.status === 'playing'}
-              isActive={gameState.status === 'playing'}
+              isTurn={isMyTurn && !me.finished}
+              isActive={isMyTurn && !me.finished}
               isMyTurn={isMyTurn && !me.finished}
               playAudioWarning={isMyTurn && !me.finished}
-            />
-
-            {/* Horizontally Fanned Face-Up Hand (Fluid clamp() card sizing + snap-scrollable overflow on mobile) */}
-            <div
-              style={{
-                paddingTop: '16px',
-                paddingBottom: 'clamp(0.25rem, 0.8vh, 0.5rem)',
-                touchAction: 'pan-x',
-                scrollPadding: '0 16px',
-                WebkitOverflowScrolling: 'touch',
-              }}
-              className="hand-scroll hand-fade-mask hand-wrapper flex items-center overflow-x-auto overflow-y-hidden px-4"
             >
-              {me.finished ? (
-                <div
-                  style={{ fontSize: 'var(--font-sm)' }}
-                  className="text-center py-4 text-emerald-300 font-display font-bold w-full"
-                >
-                  🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
-                </div>
-              ) : (
-                <div className="flex items-end min-w-full justify-start sm:justify-center px-3 shrink-0">
-                  <AnimatePresence>
-                    {myHand.map((card, idx) => {
-                      const playable =
-                        isMyTurn && isCardPlayableClient(card, myHand, gameState);
-                      const offsetFromCenter = idx - handMid;
-                      const fanAngleDeg =
-                        myHand.length <= 12
-                          ? offsetFromCenter * 2.5
-                          : offsetFromCenter * 1.4;
-                      const archDropVmin = Math.min(
-                        1.8,
-                        Math.abs(offsetFromCenter) * 0.22
-                      );
+              <div
+                style={{
+                  backgroundColor: me.avatarColor || '#ef4444',
+                  width: 'var(--avatar-size)',
+                  height: 'var(--avatar-size)',
+                  fontSize: 'clamp(18px, 2.8vmin, 26px)',
+                  '--glow-color': me.avatarColor || '#ef4444',
+                  ...(isMyTurn && !me.finished
+                    ? {
+                        boxShadow: `0 0 28px ${me.avatarColor || '#ef4444'}, 0 0 14px ${me.avatarColor || '#ef4444'}cc, inset 0 0 8px rgba(255,255,255,0.4)`,
+                        borderColor: '#fef08a',
+                      }
+                    : isMeNext
+                    ? {
+                        boxShadow: `0 0 14px ${me.avatarColor || '#ef4444'}80`,
+                        borderColor: me.avatarColor || '#ef4444',
+                      }
+                    : {
+                        borderColor: 'rgba(255,255,255,0.8)',
+                      }),
+                }}
+                className={`rounded-full flex items-center justify-center text-white font-display font-black relative transition-all duration-300 ${
+                  isMyTurn && !me.finished
+                    ? 'border-2 ring-4 ring-yellow-400/80 active-player-pulse'
+                    : isMeNext
+                    ? 'border-2 ring-2 ring-sky-300/70'
+                    : 'border-2 shadow-md hover:border-white'
+                }`}
+              >
+                {me.finished ? '🏆' : (me.name || 'Y').trim().charAt(0).toUpperCase()}
 
-                      return (
-                        <div
-                          key={card.id}
-                          style={{
-                            marginLeft:
-                              idx === 0 ? '0px' : 'calc(var(--card-w) * -0.35)',
-                            transform: `translate3d(0, ${archDropVmin}vmin, 0) rotate(${fanAngleDeg}deg)`,
-                            zIndex: idx + 1,
-                            touchAction: 'pan-x',
-                          }}
-                          className="hand-card-slot shrink-0 transition-transform duration-200 hover:!z-30 snap-center"
-                        >
-                          <UnoCard
-                            card={card}
-                            size="md"
-                            playable={playable}
-                            focused={isMyTurn && focusedCardIndex === idx}
-                            disabled={!isMyTurn}
-                            onCardSelect={handleCardClick}
-                          />
-                        </div>
-                      );
-                    })}
-                  </AnimatePresence>
-                  <div className="w-6 shrink-0 pointer-events-none" aria-hidden="true" />
-                </div>
+                {isHost && (
+                  <span
+                    className="absolute -top-1 -left-1 bg-amber-400 text-slate-950 p-1 rounded-full shadow-md"
+                    title="Room Host"
+                  >
+                    <Crown className="w-3 h-3" />
+                  </span>
+                )}
+
+                {/* UNO Badge with "UNO" text ONLY when holding 1 card (Part 17) */}
+                {!me.finished && myHand.length === 1 && (
+                  <span
+                    className="absolute -top-2 -right-2 px-1.5 py-0.5 rounded-full bg-red-600 text-white font-display font-black text-[10px] tracking-wider border-2 border-white shadow-lg flex items-center justify-center animate-bounce z-20"
+                    title="UNO!"
+                  >
+                    UNO
+                  </span>
+                )}
+
+                {/* Disconnected Indicator */}
+                {!me.connected && (
+                  <span
+                    className="absolute -bottom-1 -right-1 bg-rose-600 text-white p-1 rounded-full shadow-md"
+                    title="Disconnected"
+                  >
+                    <WifiOff className="w-3 h-3" />
+                  </span>
+                )}
+              </div>
+            </TurnTimer>
+          </div>
+
+          {/* Right: Name and Card Count Pill (Horizontally aligned, vertically centered - Part 20) */}
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="flex flex-col items-start min-w-0">
+              <p
+                style={{
+                  fontSize: 'clamp(13px, 1.9vmin, 18px)',
+                  maxWidth: 'clamp(80px, 12vw, 130px)',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.95), 0 2px 6px rgba(0,0,0,0.7)',
+                }}
+                className={`font-extrabold text-white truncate leading-tight transition-colors ${
+                  isMyTurn && !me.finished ? 'text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]' : ''
+                }`}
+                title={me.name}
+              >
+                {me.name} (You)
+              </p>
+
+              {/* Catch UNO button if opponent is vulnerable */}
+              {vulnerableOpponent && (
+                <button
+                  type="button"
+                  onClick={() => catchUno(vulnerableOpponent.id)}
+                  style={{ fontSize: 'clamp(10px, 1.4vmin, 13px)' }}
+                  className="mt-0.5 px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-display font-black shadow-lg border border-white/50 cursor-pointer transition hover:scale-105 shrink-0"
+                >
+                  ⚡ Catch {vulnerableOpponent.name}!
+                </button>
               )}
             </div>
-          </section>
 
-          {/* BOTTOM-RIGHT: Large Red UNO Oval Button (Part 14) */}
-          <div className="grid-area-bottom-right flex items-end justify-end p-2 pointer-events-auto z-20">
-            <UnoButton
-              onCallUno={callUno}
-              eligible={!me.finished && myHand.length <= 2 && myHand.length > 0}
-              saidUno={me.saidUno}
+            {/* Bigger Card Count Pill (Part 20) */}
+            <CardCountPill
+              cardCount={myHand.length}
+              finished={me.finished}
+              finishRank={me.finishRank}
+              playerColor={me.avatarColor || '#ef4444'}
             />
           </div>
         </div>
-      )}
 
-      {/* Top-Left Info (i) Modal: Rules & Keyboard Shortcuts */}
+        {/* FLOATING FACE-UP HAND (Border-less, horizontal scroll at bottom of table) */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '0',
+            left: '0',
+            right: '0',
+          }}
+          className="z-20 flex flex-col items-center pointer-events-none pb-1 sm:pb-2"
+        >
+          <div
+            ref={handScrollRef}
+            style={{
+              touchAction: 'pan-x',
+              scrollPadding: '0 16px',
+              WebkitOverflowScrolling: 'touch',
+              maxWidth: 'min(98vw, 1100px)',
+            }}
+            className="pointer-events-auto hand-scroll hand-fade-mask hand-wrapper flex items-center overflow-x-auto overflow-y-hidden w-full px-4 pt-4 pb-2"
+          >
+            {me.finished ? (
+              <div
+                style={{ fontSize: 'var(--font-sm)' }}
+                className="text-center py-2 text-emerald-300 font-display font-bold w-full"
+              >
+                🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
+              </div>
+            ) : (
+              <div className="flex items-end min-w-full justify-start sm:justify-center px-4 shrink-0">
+                <AnimatePresence>
+                  {myHand.map((card, idx) => {
+                    const playable =
+                      isMyTurn && isCardPlayableClient(card, myHand, gameState);
+                    const offsetFromCenter = idx - handMid;
+                    const fanAngleDeg =
+                      myHand.length <= 12
+                        ? offsetFromCenter * 2.2
+                        : offsetFromCenter * 1.2;
+                    const archDropVmin = Math.min(
+                      1.5,
+                      Math.abs(offsetFromCenter) * 0.18
+                    );
+
+                    return (
+                      <div
+                        key={card.id}
+                        style={{
+                          marginLeft:
+                            idx === 0 ? '0px' : 'calc(var(--card-w) * -0.35)',
+                          transform: `translate3d(0, ${archDropVmin}vmin, 0) rotate(${fanAngleDeg}deg)`,
+                          zIndex: idx + 1,
+                          touchAction: 'pan-x',
+                        }}
+                        className="hand-card-slot shrink-0 transition-transform duration-200 hover:!z-30 snap-center"
+                      >
+                        <UnoCard
+                          card={card}
+                          size="md"
+                          playable={playable}
+                          focused={isMyTurn && focusedCardIndex === idx}
+                          disabled={!isMyTurn}
+                          onCardSelect={handleCardClick}
+                        />
+                      </div>
+                    );
+                  })}
+                </AnimatePresence>
+                <div className="w-6 shrink-0 pointer-events-none" aria-hidden="true" />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* BOTTOM-LEFT: Settings (⚙️) Button */}
+        <div className="absolute bottom-2 left-2 z-30 pointer-events-auto">
+          <SettingsButton onClick={() => setShowMenuModal(true)} />
+        </div>
+
+        {/* BOTTOM-RIGHT: Large Red UNO Button */}
+        <div className="absolute bottom-2 right-2 z-30 pointer-events-auto">
+          <UnoButton
+            onCallUno={callUno}
+            eligible={!me.finished && myHand.length <= 2 && myHand.length > 0}
+            saidUno={me.saidUno}
+          />
+        </div>
+      </main>
+
+      {/* Top-Left Info Modal: Rules & Guide */}
       <AnimatePresence>
         {showInfoModal && (
           <div
             onClick={() => setShowInfoModal(false)}
-            className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
           >
             <motion.div
               onClick={(e) => e.stopPropagation()}
@@ -1478,7 +1202,7 @@ export default function GamePage() {
                   onClick={() => setShowInfoModal(false)}
                   className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
@@ -1490,7 +1214,7 @@ export default function GamePage() {
                   <strong className="text-white">🏆 Elimination Mode:</strong> Emptying your hand locks in your finish rank (<span className="text-emerald-400">#1, #2, #3...</span>). The round continues until only 1 player is left holding cards!
                 </p>
                 <p>
-                  <strong className="text-white">⏱️ 60s Turn Timer:</strong> Every turn has a 60-second server countdown. If time expires, the server automatically draws and plays a legal card for you.
+                  <strong className="text-white">⏱️ Turn Timer Ring:</strong> The glowing ring around your circle avatar counts down your turn. If time expires, the server automatically draws and plays for you.
                 </p>
                 <p>
                   <strong className="text-white">🔴 UNO Call:</strong> Press the <span className="text-red-400 font-bold">UNO!</span> button (or key <kbd className="px-1.5 py-0.5 rounded bg-slate-800 text-white">U</kbd>) when down to 1–2 cards before an opponent catches you!
@@ -1501,7 +1225,7 @@ export default function GamePage() {
         )}
       </AnimatePresence>
 
-      {/* Right-Edge Floating Widget: 💬 Collapsible Chat / Move Log (Portal) */}
+      {/* Right-Edge Floating Widget: 💬 Collapsible Chat / Move Log */}
       <ChatDrawer
         chatMessages={gameState.chatMessages}
         actionLog={gameState.actionLog}
@@ -1516,30 +1240,23 @@ export default function GamePage() {
         onCancel={pendingWildCard ? () => setPendingWildCard(null) : undefined}
       />
 
-      {/* Round End / Game Over Final Leaderboard Modal (Ephemeral — Destroyed on Play Again or Leave) */}
+      {/* Round End / Game Over Final Leaderboard Modal (Dynamic & Ephemeral) */}
       {(gameState.status === 'round_over' || gameState.status === 'game_over') && (
         <LeaderboardModal
           roundSummary={gameState.roundSummary}
           isGameOver={gameState.status === 'game_over'}
           isHost={isHost}
+          localPlayerId={playerId}
           onNextRound={() => startGame(true)}
           onPlayAgain={returnToLobby}
           onLeave={handleLeaveGame}
         />
       )}
 
-      {/* Part 14 Issue 3: Turn Hints (Floating Tooltip + Bouncing Arrow) */}
-      <TurnHint
-        isMyTurn={isMyTurn && !me.finished}
-        turnSequence={gameState.turnSequence}
-        activePlayerName={activePlayerObj?.name}
-        isAwaitingColor={gameState.awaitingColorChoice}
-        hasDrawn={gameState.hasDrawnThisTurn}
-        cardCount={myHand.length}
-        saidUno={me.saidUno}
-      />
+      {/* In-Game Notification Banner (Part 19: Top-Right Fixed) */}
+      <InGameNotificationBanner />
 
-      {/* Part 14 Issue 2: Mobile Landscape Lock / Rotation Prompt Overlay */}
+      {/* Part 14: Mobile Landscape Lock / Rotation Prompt Overlay */}
       <AnimatePresence>
         {isMobilePortrait && (
           <RotateDeviceOverlay onContinueAnyway={() => setDismissRotateOverlay(true)} />
