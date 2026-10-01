@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Smartphone, Flame, Sparkles, X, Settings } from 'lucide-react';
+import { Smartphone, Flame, Sparkles, X, Settings, Maximize, Minimize } from 'lucide-react';
 
 /**
  * Mobile Rotate Device Overlay (Part 14 Issue 2)
@@ -306,3 +306,175 @@ export function SettingsButton({ onClick }) {
     </button>
   );
 }
+
+/**
+ * Fullscreen Detection & API Integration (Part 15)
+ */
+export function isFullscreen() {
+  if (typeof document === 'undefined') return false;
+  return Boolean(
+    document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement
+  );
+}
+
+export function isFullscreenSupported() {
+  if (typeof document === 'undefined' || typeof navigator === 'undefined') return false;
+  const isIPhone = /iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIPhone) {
+    // iPhone Safari only supports fullscreen on <video> elements, not произвольный DOM elements
+    return false;
+  }
+  return Boolean(
+    document.fullscreenEnabled ||
+    document.webkitFullscreenEnabled ||
+    document.mozFullScreenEnabled ||
+    document.msFullscreenEnabled
+  );
+}
+
+export async function enterFullscreen(el) {
+  if (!el) return;
+  try {
+    if (el.requestFullscreen) {
+      await el.requestFullscreen();
+    } else if (el.webkitRequestFullscreen) {
+      await el.webkitRequestFullscreen();
+    } else if (el.mozRequestFullScreen) {
+      await el.mozRequestFullScreen();
+    } else if (el.msRequestFullscreen) {
+      await el.msRequestFullscreen();
+    }
+  } catch {
+    // Gracefully handle gesture or security rejections
+  }
+}
+
+export async function exitFullscreen() {
+  if (typeof document === 'undefined') return;
+  try {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      await document.webkitExitFullscreen();
+    } else if (document.mozCancelFullScreen) {
+      await document.mozCancelFullScreen();
+    } else if (document.msExitFullscreen) {
+      await document.msExitFullscreen();
+    }
+  } catch {
+    // Gracefully handle
+  }
+}
+
+/**
+ * Fullscreen Toggle Button (Part 15 Specification)
+ * - Toggles fullscreen on container element
+ * - Synchronizes with browser fullscreenchange events (Esc key, browser exits)
+ * - Auto-triggers resize event to resize game table
+ * - Attempts mobile landscape orientation lock on enter, unlocks on exit
+ * - Hides gracefully on unsupported devices (e.g. iPhone Safari)
+ */
+export function FullscreenButton({ containerRef }) {
+  const [fullscreenActive, setFullscreenActive] = useState(false);
+  const [supported, setSupported] = useState(true);
+
+  useEffect(() => {
+    setSupported(isFullscreenSupported());
+    setFullscreenActive(isFullscreen());
+  }, []);
+
+  useEffect(() => {
+    const handleSync = () => {
+      const active = isFullscreen();
+      setFullscreenActive(active);
+
+      // Part 15 Rule 6: Persist in sessionStorage (ephemeral to tab session)
+      try {
+        if (active) {
+          sessionStorage.setItem('uno_fullscreen_preferred', 'true');
+        } else {
+          sessionStorage.removeItem('uno_fullscreen_preferred');
+        }
+      } catch {
+        // Ignore sessionStorage errors
+      }
+
+      // Part 15 Rule 4: Dispatch window resize so game table auto-resizes seamlessly
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 50);
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 250);
+    };
+
+    document.addEventListener('fullscreenchange', handleSync);
+    document.addEventListener('webkitfullscreenchange', handleSync);
+    document.addEventListener('mozfullscreenchange', handleSync);
+    document.addEventListener('MSFullscreenChange', handleSync);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleSync);
+      document.removeEventListener('webkitfullscreenchange', handleSync);
+      document.removeEventListener('mozfullscreenchange', handleSync);
+      document.removeEventListener('MSFullscreenChange', handleSync);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    const targetEl = containerRef?.current || document.documentElement;
+
+    if (!isFullscreen()) {
+      await enterFullscreen(targetEl);
+      // Part 15 Rule 5: Attempt landscape orientation lock on fullscreen enter
+      try {
+        if (window.screen?.orientation?.lock) {
+          window.screen.orientation.lock('landscape').catch(() => {});
+        }
+      } catch {
+        // Ignore
+      }
+    } else {
+      await exitFullscreen();
+      // Part 15 Rule 5: Release orientation lock on fullscreen exit
+      try {
+        if (window.screen?.orientation?.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch {
+        // Ignore
+      }
+    }
+  };
+
+  if (!supported) {
+    return null;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleToggleFullscreen}
+      style={{
+        width: 'clamp(36px, 5vmin, 44px)',
+        height: 'clamp(36px, 5vmin, 44px)',
+      }}
+      className={`uno-tap-target rounded-full bg-slate-900/90 hover:bg-slate-800 border-2 shadow-lg flex items-center justify-center cursor-pointer transition hover:scale-105 ${
+        fullscreenActive
+          ? 'border-emerald-400 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.45)]'
+          : 'border-white/20 hover:border-emerald-400/60 text-slate-200 hover:text-emerald-300'
+      }`}
+      title={fullscreenActive ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+    >
+      {fullscreenActive ? (
+        <Minimize className="w-4 h-4 sm:w-5 sm:h-5" />
+      ) : (
+        <Maximize className="w-4 h-4 sm:w-5 sm:h-5" />
+      )}
+    </button>
+  );
+}
+

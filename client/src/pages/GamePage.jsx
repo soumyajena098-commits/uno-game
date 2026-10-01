@@ -33,6 +33,7 @@ import {
   TurnHint,
   UnoButton,
   SettingsButton,
+  FullscreenButton,
 } from '../components/TableDecorations.jsx';
 
 const ACTIVE_COLOR_STYLES = {
@@ -178,6 +179,7 @@ export default function GamePage() {
     toggleReduceMotion,
   } = useGameStore();
 
+  const gameContainerRef = useRef(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showMenuModal, setShowMenuModal] = useState(false);
   const [focusedCardIndex, setFocusedCardIndex] = useState(0);
@@ -206,6 +208,11 @@ export default function GamePage() {
         if (window.screen?.orientation?.unlock) {
           window.screen.orientation.unlock();
         }
+      } catch {
+        // Ignore
+      }
+      try {
+        sessionStorage.removeItem('uno_fullscreen_preferred');
       } catch {
         // Ignore
       }
@@ -415,7 +422,7 @@ export default function GamePage() {
   const handMid = (myHand.length - 1) / 2;
 
   return (
-    <div className="game-screen uno-safe-viewport select-none">
+    <div ref={gameContainerRef} className="game-screen uno-safe-viewport select-none">
       {/* Top Header Bar: Info (i) + Center Turn Flow Pill + Menu (☰) */}
       <header
         style={{ paddingBlock: '0.4vh', gap: 'var(--gap)' }}
@@ -467,8 +474,9 @@ export default function GamePage() {
           )}
         </div>
 
-        {/* Top-Right: Side-by-side Info (ℹ️) + Menu (☰) Buttons (Part 14) */}
+        {/* Top-Right: Side-by-side Fullscreen (⛶) + Info (ℹ️) + Menu (☰) Buttons (Part 15) */}
         <div className="relative flex items-center gap-2">
+          <FullscreenButton containerRef={gameContainerRef} />
           <button
             type="button"
             onClick={() => setShowInfoModal(true)}

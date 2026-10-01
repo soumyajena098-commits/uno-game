@@ -113,6 +113,20 @@
   touch-action: manipulation;
 }
 
+/* Part 15: Fullscreen Game Container */
+.game-screen:fullscreen,
+.game-screen:-webkit-full-screen,
+.game-screen:-moz-full-screen,
+.game-screen:-ms-fullscreen {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  background: radial-gradient(circle at 50% 35%, #1e1b4b 0%, #090d16 70%, #030712 100%) !important;
+  overflow: hidden !important;
+}
+
 /* Safe-Area Viewport Container (Respects mobile notches & home indicator bars) */
 .uno-safe-viewport {
   width: 100%;
