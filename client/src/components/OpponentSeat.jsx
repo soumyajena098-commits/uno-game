@@ -66,15 +66,14 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
           })}
         </div>
 
-        {/* Part 13: +N badge when opponent has more than 5 cards */}
-        {overflowCount > 0 && (
-          <span
-            style={{ fontSize: 'var(--font-xs)' }}
-            className="ml-1 px-1.5 py-0.5 rounded-full bg-slate-900/90 border border-white/20 text-amber-300 font-display font-black shadow shrink-0"
-          >
-            +{overflowCount}
-          </span>
-        )}
+        {/* Card count badge next to fan (Part 14) */}
+        <span
+          style={{ fontSize: 'var(--font-xs)' }}
+          className="ml-1.5 px-2 py-0.5 rounded-full bg-slate-900/90 border border-amber-300/40 text-amber-300 font-mono font-bold shadow shrink-0"
+          title={`${cardCount} cards`}
+        >
+          🃏 {cardCount}
+        </span>
       </div>
     );
   }
@@ -118,14 +117,14 @@ const OpponentCardFan = React.memo(function OpponentCardFan({
         })}
       </div>
 
-      {overflowCount > 0 && (
-        <span
-          style={{ fontSize: 'var(--font-xs)' }}
-          className="mt-1 px-1.5 py-0.5 rounded-full bg-slate-900/90 border border-white/20 text-amber-300 font-display font-black shadow shrink-0"
-        >
-          +{overflowCount}
-        </span>
-      )}
+      {/* Card count badge below vertical fan (Part 14) */}
+      <span
+        style={{ fontSize: 'var(--font-xs)' }}
+        className="mt-1 px-2 py-0.5 rounded-full bg-slate-900/90 border border-amber-300/40 text-amber-300 font-mono font-bold shadow shrink-0"
+        title={`${cardCount} cards`}
+      >
+        🃏 {cardCount}
+      </span>
     </div>
   );
 });
@@ -279,13 +278,22 @@ function OpponentSeatComponent({
       </button>
 
       {/* Fluid Player Name & Finished Badge */}
-      <div className="mt-[0.2vh] text-center max-w-[14vw] sm:max-w-[9vw]">
+      <div className="mt-[0.2vh] text-center max-w-[14vw] sm:max-w-[9vw] flex flex-col items-center">
         <p
           style={{ fontSize: 'var(--font-sm)' }}
-          className="font-extrabold text-white drop-shadow truncate"
+          className="font-extrabold text-white drop-shadow truncate w-full"
         >
           {player.name}
         </p>
+        {!player.finished && (
+          <span
+            style={{ fontSize: 'var(--font-xs)' }}
+            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-300 font-mono font-bold shadow mt-0.5"
+            title={`${player.cardCount} cards`}
+          >
+            🃏 {player.cardCount}
+          </span>
+        )}
         {player.finished && (
           <span
             style={{ fontSize: 'var(--font-xs)' }}
@@ -403,9 +411,16 @@ function OpponentSeatComponent({
 
         {/* Player Name & Status */}
         <div className="flex flex-col min-w-0">
-          <span className="font-display font-bold text-xs text-white truncate max-w-[65px] sm:max-w-[85px]">
-            {player.name}
-          </span>
+          <div className="flex items-center gap-1">
+            <span className="font-display font-bold text-xs text-white truncate max-w-[65px] sm:max-w-[85px]">
+              {player.name}
+            </span>
+            {!player.finished && (
+              <span className="px-1.5 py-0.2 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-300 font-mono font-bold text-[9px] shadow shrink-0">
+                🃏 {player.cardCount}
+              </span>
+            )}
+          </div>
           {player.finished ? (
             <span className="text-[10px] font-bold text-emerald-400">
               🏆 #{player.finishRank}

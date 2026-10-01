@@ -174,12 +174,13 @@ export class RoomManager {
   }
 
   closeRoom({ roomId, playerId }) {
-    const room = this.rooms.get(roomId);
+    const cleanId = String(roomId || '').trim().toUpperCase();
+    const room = this.rooms.get(cleanId);
     if (!room) return { error: 'Room not found.' };
     if (playerId && room.hostId !== playerId) {
       return { error: 'Only the room host can close the room.' };
     }
-    this.cleanupRoom(roomId, 'Host closed the room.');
+    this.cleanupRoom(cleanId, 'Host closed the room.');
     return { success: true };
   }
 
@@ -344,7 +345,7 @@ export class RoomManager {
   }
 
   joinRoom({ roomId, playerName, playerId, socketId }) {
-    const cleanCode = String(roomId || '').trim();
+    const cleanCode = String(roomId || '').trim().toUpperCase();
     const room = this.rooms.get(cleanCode);
 
     if (!room) {

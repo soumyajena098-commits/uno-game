@@ -314,23 +314,46 @@ export const useGameStore = create((set, get) => ({
       const cleanName = (playerName || get().playerName || 'Player_1').trim();
       get().setPlayerName(cleanName);
 
-      socket.emit(
-        'create_room',
-        {
-          playerName: cleanName,
-          playerId: get().playerId,
-          settings,
-        },
-        (res) => {
-          if (res?.error) {
-            soundEngine.errorBuzz();
-            get().addToast(res.error, 'error');
-          } else if (res?.state) {
-            set({ gameState: res.state });
-          }
-          resolve(res);
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          soundEngine.errorBuzz();
+          get().addToast('Creating room timed out. Please check your connection.', 'error');
+          resolve({ error: 'Connection timed out. Please try again.' });
         }
-      );
+      }, 5000);
+
+      const doEmit = () => {
+        socket.emit(
+          'create_room',
+          {
+            playerName: cleanName,
+            playerId: get().playerId,
+            settings,
+          },
+          (res) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            if (res?.error) {
+              soundEngine.errorBuzz();
+              get().addToast(res.error, 'error');
+            } else if (res?.state) {
+              set({ gameState: res.state });
+            }
+            resolve(res);
+          }
+        );
+      };
+
+      if (socket.connected) {
+        doEmit();
+      } else {
+        socket.once('connect', () => {
+          if (!settled) doEmit();
+        });
+      }
     }),
 
   joinRoom: (roomId, playerName) =>
@@ -341,24 +364,48 @@ export const useGameStore = create((set, get) => ({
       const socket = get().initSocket();
       const cleanName = (playerName || get().playerName || 'Player').trim();
       get().setPlayerName(cleanName);
+      const cleanRoomId = String(roomId || '').trim().toUpperCase();
 
-      socket.emit(
-        'join_room',
-        {
-          roomId: String(roomId).trim(),
-          playerName: cleanName,
-          playerId: get().playerId,
-        },
-        (res) => {
-          if (res?.error) {
-            soundEngine.errorBuzz();
-            get().addToast(res.error, 'error');
-          } else if (res?.state) {
-            set({ gameState: res.state });
-          }
-          resolve(res);
+      let settled = false;
+      const timeoutId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          soundEngine.errorBuzz();
+          get().addToast('Joining room timed out. Please check the room code & connection.', 'error');
+          resolve({ error: 'Connection timed out. Please try again.' });
         }
-      );
+      }, 5000);
+
+      const doEmit = () => {
+        socket.emit(
+          'join_room',
+          {
+            roomId: cleanRoomId,
+            playerName: cleanName,
+            playerId: get().playerId,
+          },
+          (res) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timeoutId);
+            if (res?.error) {
+              soundEngine.errorBuzz();
+              get().addToast(res.error, 'error');
+            } else if (res?.state) {
+              set({ gameState: res.state });
+            }
+            resolve(res);
+          }
+        );
+      };
+
+      if (socket.connected) {
+        doEmit();
+      } else {
+        socket.once('connect', () => {
+          if (!settled) doEmit();
+        });
+      }
     }),
 
   leaveRoom: () => {

@@ -250,6 +250,16 @@
   grid-area: hand;
   width: 100%;
 }
+.grid-area-bottom-left {
+  grid-area: bottom-left;
+  align-self: end;
+  justify-self: start;
+}
+.grid-area-bottom-right {
+  grid-area: bottom-right;
+  align-self: end;
+  justify-self: end;
+}
 
 /* Aspect-ratio locked UNO card (1 : 1.4 portrait proportion per Part 13) */
 .uno-card-fluid {
@@ -328,11 +338,11 @@
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 16px, black calc(100% - 16px), transparent 100%);
 }
 
-/* Floating Stack: Single Chat Drawer button (Music Player removed) */
+/* Floating Stack: Single Chat Drawer button positioned above bottom-right UNO button (Part 14) */
 .uno-floating-stack {
   position: fixed;
-  right: 2vw;
-  bottom: clamp(2vh, 4vmin, 4vh);
+  right: clamp(14px, 2.2vw, 28px);
+  bottom: clamp(72px, 10vh, 92px);
   display: flex;
   flex-direction: column;
   align-items: flex-end;

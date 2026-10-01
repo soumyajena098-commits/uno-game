@@ -107,6 +107,28 @@ function TurnTimerComponent({
     ? '#facc15' // Yellow (10-30s)
     : '#10b981'; // Green (>30s)
 
+  if (variant === 'diamond') {
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    const timeFormatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+    return (
+      <div
+        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-lg font-mono font-black text-xs sm:text-sm tabular-nums backdrop-blur-md transition-colors ${
+          isUrgent
+            ? 'bg-red-950/80 border-red-500/80 text-red-400 animate-pulse'
+            : isWarning
+            ? 'bg-amber-950/80 border-amber-400/80 text-amber-300'
+            : 'bg-slate-900/90 border-sky-400/50 text-white'
+        }`}
+        title="Turn Time Remaining"
+      >
+        <span className="text-sky-400 drop-shadow">🔷</span>
+        <span>{active ? timeFormatted : '01:00'}</span>
+      </div>
+    );
+  }
+
   if (variant === 'compact') {
     return (
       <div

@@ -27,6 +27,13 @@ import TurnTimer from '../components/TurnTimer.jsx';
 import ColorPickerModal from '../components/ColorPickerModal.jsx';
 import LeaderboardModal from '../components/LeaderboardModal.jsx';
 import ChatDrawer from '../components/ChatDrawer.jsx';
+import {
+  RotateDeviceOverlay,
+  DirectionSwirl,
+  TurnHint,
+  UnoButton,
+  SettingsButton,
+} from '../components/TableDecorations.jsx';
 
 const ACTIVE_COLOR_STYLES = {
   red: {
@@ -98,29 +105,29 @@ function isCardPlayableClient(card, hand, gameState) {
 
 /**
  * Maps opponents (ordered clockwise from local player's bottom seat)
- * to exact CSS Grid area + seatPosition per Part 7 & Part 8 specifications:
+ * to exact perimeter seats per Part 14 Table Overhaul:
  * - 1 opponent (1vBot / 2P): ['top-center']
- * - 2 opponents (3P):        ['left-edge', 'right-edge']
- * - 3 opponents (4P):        ['left-edge', 'top-center', 'right-edge']
- * - 4 opponents (5P):        ['left-edge', 'top-left', 'top-right', 'right-edge']
- * - 5 opponents (6P):        ['left-edge', 'top-left', 'top-center', 'top-right', 'right-edge']
+ * - 2 opponents (3P):        ['top-left', 'top-right']
+ * - 3 opponents (4P):        ['top-left', 'top-center', 'top-right']
+ * - 4 opponents (5P):        ['top-left', 'top-center', 'top-right', 'right-side']
+ * - 5 opponents (6P):        ['left-side', 'top-left', 'top-center', 'top-right', 'right-side']
  */
 function assignOpponentSeats(opponents) {
   const count = opponents.length;
   const seatTemplates = {
     1: [{ seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' }],
     2: [
-      { seatPosition: 'left-edge', gridAreaClass: 'grid-area-mid-left' },
-      { seatPosition: 'right-edge', gridAreaClass: 'grid-area-mid-right' },
+      { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
+      { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
     ],
     3: [
-      { seatPosition: 'left-edge', gridAreaClass: 'grid-area-mid-left' },
+      { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
       { seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' },
-      { seatPosition: 'right-edge', gridAreaClass: 'grid-area-mid-right' },
+      { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
     ],
     4: [
-      { seatPosition: 'left-edge', gridAreaClass: 'grid-area-mid-left' },
       { seatPosition: 'top-left', gridAreaClass: 'grid-area-top-left' },
+      { seatPosition: 'top-center', gridAreaClass: 'grid-area-top-center' },
       { seatPosition: 'top-right', gridAreaClass: 'grid-area-top-right' },
       { seatPosition: 'right-edge', gridAreaClass: 'grid-area-mid-right' },
     ],
@@ -180,6 +187,30 @@ export default function GamePage() {
     if (typeof window === 'undefined') return false;
     return window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches;
   });
+  const [dismissRotateOverlay, setDismissRotateOverlay] = useState(false);
+
+  // Part 14 Issue 2: Auto-rotate screen to landscape on mobile game start
+  useEffect(() => {
+    try {
+      if (window.screen?.orientation?.lock) {
+        window.screen.orientation.lock('landscape').catch(() => {
+          // Handled gracefully on browsers without user-gesture fullscreen requirement
+        });
+      }
+    } catch {
+      // Ignore unsupported browsers
+    }
+
+    return () => {
+      try {
+        if (window.screen?.orientation?.unlock) {
+          window.screen.orientation.unlock();
+        }
+      } catch {
+        // Ignore
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -213,6 +244,13 @@ export default function GamePage() {
       }
     };
   }, []);
+
+  const isMobilePortrait =
+    !dismissRotateOverlay &&
+    (isPortraitMobile ||
+      (typeof window !== 'undefined' &&
+        window.innerHeight > window.innerWidth &&
+        window.innerWidth < 850));
 
   useEffect(() => {
     if (!gameState || gameState.roomId !== roomId) {
@@ -383,24 +421,24 @@ export default function GamePage() {
         style={{ paddingBlock: '0.4vh', gap: 'var(--gap)' }}
         className="z-30 flex items-center justify-between shrink-0"
       >
-        {/* Top-Left: Info (i) Button + Room Code Pill */}
+        {/* Top-Left: Diamond Timer ("01:00") + Room Code Pill (Part 14) */}
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowInfoModal(true)}
-            style={{
-              width: 'clamp(36px, 5vmin, 44px)',
-              height: 'clamp(36px, 5vmin, 44px)',
-            }}
-            className="uno-tap-target rounded-full bg-slate-900/90 hover:bg-slate-800 border-2 border-sky-400/60 text-sky-300 shadow-lg flex items-center justify-center cursor-pointer transition hover:scale-105"
-            title="Game Rules & Info"
-          >
-            <Info className="w-4 h-4 sm:w-5 sm:h-5" />
-          </button>
+          <TurnTimer
+            variant="diamond"
+            endsAt={authoritativeEndsAt}
+            turnDeadline={authoritativeEndsAt}
+            serverNow={gameState.serverNow}
+            turnSequence={gameState.turnSequence}
+            totalTurnSeconds={60}
+            isTurn={gameState.status === 'playing'}
+            isActive={gameState.status === 'playing'}
+            isMyTurn={isMyTurn && !me.finished}
+            playAudioWarning={isMyTurn && !me.finished}
+          />
 
           <div
             style={{ fontSize: 'var(--font-xs)' }}
-            className="hidden sm:flex items-center gap-2 bg-slate-900/85 backdrop-blur-md border border-white/15 rounded-full px-3 py-1 shadow"
+            className="hidden sm:flex items-center gap-1.5 bg-slate-900/85 backdrop-blur-md border border-white/15 rounded-full px-3 py-1 shadow"
           >
             <span className="font-display font-black text-amber-400">
               #{gameState.roomId}
@@ -429,8 +467,21 @@ export default function GamePage() {
           )}
         </div>
 
-        {/* Top-Right: Menu (☰) Button */}
+        {/* Top-Right: Side-by-side Info (ℹ️) + Menu (☰) Buttons (Part 14) */}
         <div className="relative flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowInfoModal(true)}
+            style={{
+              width: 'clamp(36px, 5vmin, 44px)',
+              height: 'clamp(36px, 5vmin, 44px)',
+            }}
+            className="uno-tap-target rounded-full bg-slate-900/90 hover:bg-slate-800 border-2 border-sky-400/60 text-sky-300 shadow-lg flex items-center justify-center cursor-pointer transition hover:scale-105"
+            title="Game Rules & Info"
+          >
+            <Info className="w-4 h-4 sm:w-5 sm:h-5" />
+          </button>
+
           <button
             type="button"
             onClick={() => setShowMenuModal((v) => !v)}
@@ -596,9 +647,12 @@ export default function GamePage() {
             <div
               className={`relative px-4 py-2.5 rounded-3xl bg-slate-900/80 backdrop-blur-md border transition-all duration-500 flex flex-col items-center justify-center ${activeColorStyle.circleBorder}`}
             >
+              {/* Part 14: Green Swirling Direction Indicator with REVERSED pop-up */}
+              <DirectionSwirl direction={gameState.direction} />
+
               {/* Suit Indicator Pill */}
               <div
-                className={`px-2.5 py-0.5 rounded-full border text-[11px] font-display font-black uppercase tracking-wider mb-1 transition-colors ${activeColorStyle.badge}`}
+                className={`px-2.5 py-0.5 rounded-full border text-[11px] font-display font-black uppercase tracking-wider mb-1 transition-colors z-20 ${activeColorStyle.badge}`}
               >
                 Suit: {gameState.activeColor}
               </div>
@@ -809,6 +863,11 @@ export default function GamePage() {
                     <span className="font-display font-bold text-xs text-white truncate max-w-[85px]">
                       {me.name}
                     </span>
+                    {!me.finished && (
+                      <span className="px-1.5 py-0.2 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-300 font-mono font-bold text-[10px] shadow shrink-0">
+                        🃏 {myHand.length}
+                      </span>
+                    )}
                     {me.finished ? (
                       <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/20 border border-emerald-400 text-emerald-300 text-[10px] font-bold">
                         🏆 #{me.finishRank}
@@ -967,10 +1026,13 @@ export default function GamePage() {
               }}
               className={`relative rounded-full bg-radial from-sky-950/75 via-slate-900/90 to-slate-950/95 border-4 transition-all duration-500 flex flex-col items-center justify-center ${activeColorStyle.circleBorder}`}
             >
+              {/* Part 14: Green Swirling Direction Indicator with REVERSED pop-up */}
+              <DirectionSwirl direction={gameState.direction} />
+
               {/* Active Suit Badge at Top of Circle */}
               <div
                 style={{ fontSize: 'var(--font-xs)' }}
-                className={`px-3 py-0.5 rounded-full border-2 font-display font-black uppercase tracking-wider shadow-lg mb-1 transition-colors ${activeColorStyle.badge}`}
+                className={`px-3 py-0.5 rounded-full border-2 font-display font-black uppercase tracking-wider shadow-lg mb-1 transition-colors z-20 ${activeColorStyle.badge}`}
               >
                 Suit: {gameState.activeColor}
               </div>
@@ -1142,6 +1204,11 @@ export default function GamePage() {
             </div>
           </main>
 
+          {/* BOTTOM-LEFT: Settings (⚙️) Button (Part 14) */}
+          <div className="grid-area-bottom-left flex items-end justify-start p-2 pointer-events-auto z-20">
+            <SettingsButton onClick={() => setShowMenuModal(true)} />
+          </div>
+
           {/* BOTTOM-CENTER: Local Player Avatar + Timer + Horizontally Fanned Face-Up Hand (grid-area: hand) */}
           <section
             style={{
@@ -1233,6 +1300,15 @@ export default function GamePage() {
                     >
                       {me.name} (You)
                     </span>
+                    {!me.finished && (
+                      <span
+                        style={{ fontSize: 'var(--font-xs)' }}
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-900/90 border border-amber-400/40 text-amber-300 font-mono font-bold shadow"
+                        title={`${myHand.length} cards in hand`}
+                      >
+                        🃏 {myHand.length}
+                      </span>
+                    )}
                     {me.finished && (
                       <span
                         style={{ fontSize: 'var(--font-xs)' }}
@@ -1359,6 +1435,15 @@ export default function GamePage() {
               )}
             </div>
           </section>
+
+          {/* BOTTOM-RIGHT: Large Red UNO Oval Button (Part 14) */}
+          <div className="grid-area-bottom-right flex items-end justify-end p-2 pointer-events-auto z-20">
+            <UnoButton
+              onCallUno={callUno}
+              eligible={!me.finished && myHand.length <= 2 && myHand.length > 0}
+              saidUno={me.saidUno}
+            />
+          </div>
         </div>
       )}
 
@@ -1434,6 +1519,24 @@ export default function GamePage() {
           onLeave={handleLeaveGame}
         />
       )}
+
+      {/* Part 14 Issue 3: Turn Hints (Floating Tooltip + Bouncing Arrow) */}
+      <TurnHint
+        isMyTurn={isMyTurn && !me.finished}
+        turnSequence={gameState.turnSequence}
+        activePlayerName={activePlayerObj?.name}
+        isAwaitingColor={gameState.awaitingColorChoice}
+        hasDrawn={gameState.hasDrawnThisTurn}
+        cardCount={myHand.length}
+        saidUno={me.saidUno}
+      />
+
+      {/* Part 14 Issue 2: Mobile Landscape Lock / Rotation Prompt Overlay */}
+      <AnimatePresence>
+        {isMobilePortrait && (
+          <RotateDeviceOverlay onContinueAnyway={() => setDismissRotateOverlay(true)} />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

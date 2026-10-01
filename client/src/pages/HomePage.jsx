@@ -95,16 +95,20 @@ export default function HomePage() {
   };
 
   const handleJoinButtonClick = () => {
-    if (!validation.valid) return;
+    if (!validation.valid || loading) return;
+    if (showJoinInput && roomCodeInput.trim().length === 6) {
+      handleJoinSubmit();
+      return;
+    }
     setShowJoinInput(true);
   };
 
   const handleJoinSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (!validation.valid || loading) return;
-    const code = roomCodeInput.trim();
-    if (!/^\d{6}$/.test(code)) {
-      addToast('Please enter a valid 6-digit room code (e.g., 482913).', 'error');
+    const code = roomCodeInput.trim().toUpperCase();
+    if (code.length !== 6) {
+      addToast('Please enter a valid 6-character room code (e.g., 482913).', 'error');
       return;
     }
     setLoading(true);
@@ -258,11 +262,11 @@ export default function HomePage() {
               onClick={handleJoinButtonClick}
               className={`py-4 px-5 rounded-2xl font-display font-black text-base sm:text-lg border-2 shadow-xl transition cursor-pointer disabled:opacity-35 disabled:cursor-not-allowed ${
                 showJoinInput
-                  ? 'bg-emerald-500 text-slate-950 border-emerald-300'
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 border-emerald-300'
                   : 'bg-slate-800 hover:bg-slate-700 text-white border-white/20'
               }`}
             >
-              🔗 JOIN GAME
+              {loading && showJoinInput ? 'JOINING...' : '🔗 JOIN GAME'}
             </button>
           </div>
 
@@ -283,22 +287,21 @@ export default function HomePage() {
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      inputMode="numeric"
                       value={roomCodeInput}
                       onChange={(e) =>
-                        setRoomCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))
+                        setRoomCodeInput(e.target.value.trim().toUpperCase().slice(0, 6))
                       }
                       placeholder="e.g. 482913"
                       maxLength={6}
                       autoFocus
-                      className="flex-1 rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-white font-mono text-xl tracking-widest text-center focus:outline-none focus:border-emerald-400"
+                      className="flex-1 rounded-xl bg-slate-900 border border-white/20 px-4 py-3 text-white font-mono text-xl tracking-widest text-center uppercase focus:outline-none focus:border-emerald-400"
                     />
                     <button
                       type="submit"
-                      disabled={!validation.valid || roomCodeInput.length !== 6 || loading}
+                      disabled={!validation.valid || roomCodeInput.trim().length !== 6 || loading}
                       className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-display font-black text-sm flex items-center gap-1.5 cursor-pointer transition disabled:opacity-40"
                     >
-                      Enter <ArrowRight className="w-4 h-4" />
+                      {loading ? 'Joining...' : 'Enter'} <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
