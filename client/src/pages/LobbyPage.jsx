@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useGameStore } from '../store/useGameStore.js';
 import { FullscreenButton } from '../context/FullscreenContext.jsx';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 
 const GAME_MODES = [
   { id: '1vBot', label: '1 vs Bot', required: 2 },
@@ -127,6 +128,7 @@ export default function LobbyPage() {
 
           <div className="flex items-center gap-2">
             <FullscreenButton />
+            <ThemeToggle />
 
             {me && (
               <button

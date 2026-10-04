@@ -51,11 +51,14 @@ export default function InGameNotificationBanner() {
               style={{
                 borderLeftColor: resolvedColor,
                 borderLeftWidth: '5px',
+                borderTopColor: 'var(--gold-primary, #d4af37)',
+                borderTopWidth: '1.5px',
+                borderColor: 'var(--panel-border, rgba(212, 175, 55, 0.35))',
                 minWidth: 'clamp(240px, 26vw, 360px)',
                 minHeight: 'clamp(48px, 6vh, 64px)',
                 padding: '12px 16px',
               }}
-              className="pointer-events-auto flex items-center justify-between gap-3 bg-slate-950/95 backdrop-blur-xl border border-white/20 rounded-2xl shadow-[0_10px_32px_rgba(0,0,0,0.85)] max-w-full"
+              className="pointer-events-auto flex items-center justify-between gap-3 bg-slate-950/95 backdrop-blur-xl border rounded-2xl shadow-[0_10px_32px_rgba(0,0,0,0.85)] max-w-full"
             >
             {/* Left: Icon & Message */}
             <div className="flex items-center gap-3 min-w-0 flex-1">

@@ -1,56 +1,111 @@
 @import "tailwindcss";
 
 :root {
-  /* Mobile Hand Cards */
-  --card-w: clamp(72px, 20vw, 96px);
+  --u: min(1vw, 1vh);
+  --card-w: clamp(56px, 8vmin, 140px);
   --card-h: calc(var(--card-w) * 1.4);
   --card-size: var(--card-w);
+  --opp-card-w: clamp(28px, 4vmin, 44px);
+  --opp-card-h: calc(var(--opp-card-w) * 1.4);
 
-  /* Part 16: Big Floating Discard Pile & Draw Pile */
-  --pile-card-w: clamp(96px, 22vmin, 160px);
+  /* Big Floating Discard Pile & Draw Pile */
+  --pile-card-w: clamp(90px, 14vmin, 160px);
   --pile-card-h: calc(var(--pile-card-w) * 1.4);
   --card-center-size: var(--pile-card-w);
 
-  /* Part 17: Bigger Opponent & Player Circle Avatars (min 56px) */
-  --avatar-size: clamp(56px, 7vmin, 84px);
+  /* Opponent & Player Circle Avatars */
+  --avatar: clamp(48px, 6vmin, 84px);
+  --avatar-size: var(--avatar);
   --fab-size: clamp(44px, 6vmin, 56px);
-  --gap: clamp(4px, 1.1vmin, 16px);
-  --font-xs: clamp(10px, 1.1vmin, 13px);
-  --font-sm: clamp(12px, 1.3vmin, 15px);
-  --font-md: clamp(14px, 1.6vmin, 18px);
-  --font-lg: clamp(16px, 2vmin, 22px);
+  --font-xs: clamp(10px, 1.2vmin, 14px);
+  --font-sm: clamp(12px, 1.5vmin, 16px);
+  --font-md: clamp(14px, 1.9vmin, 20px);
+  --font-lg: clamp(18px, 2.6vmin, 28px);
+  --radius-sm: clamp(6px, 0.8vmin, 12px);
+  --radius-md: clamp(10px, 1.2vmin, 18px);
+  --gap-sm: clamp(6px, 0.8vmin, 12px);
+  --gap-md: clamp(12px, 1.6vmin, 24px);
+  --gap: var(--gap-sm);
+
+  /* Dark Theme (Default Royal Casino) */
+  --felt-primary: #0b3d2e;
+  --felt-secondary: #062a1f;
+  --felt-border: rgba(212, 175, 55, 0.4);
+  --gold-primary: #d4af37;
+  --gold-light: #f0d97a;
+  --gold-border: rgba(212, 175, 55, 0.35);
+  --velvet-red: #8b1a1a;
+  --card-bg: #f8f3e6;
+  --text-primary: #f5e6c8;
+  --text-secondary: #c9b184;
+  --panel-bg: #0f1115;
+  --panel-bg-glass: rgba(15, 17, 21, 0.88);
+  --panel-border: rgba(212, 175, 55, 0.35);
+  --bg-gradient: radial-gradient(circle at 50% 30%, #062a1f 0%, #03140e 60%, #010805 100%);
+  --table-felt: radial-gradient(ellipse 90% 70% at 50% 50%, #0d4a38 0%, #0b3d2e 45%, #062a1f 85%, #031711 100%);
+  --gold-glow: rgba(212, 175, 55, 0.45);
+  --card-back-bg: linear-gradient(135deg, #8b1a1a 0%, #520909 50%, #2b0404 100%);
+  --card-back-border: #d4af37;
+}
+
+/* Light Theme (Royal Casino Day Mode) */
+[data-theme="light"] {
+  --felt-primary: #1e7a5c;
+  --felt-secondary: #0b3d2e;
+  --felt-border: #0b3d2e;
+  --gold-primary: #b8860b;
+  --gold-light: #d4af37;
+  --gold-border: rgba(184, 134, 11, 0.45);
+  --velvet-red: #9e2a2b;
+  --card-bg: #ffffff;
+  --text-primary: #1a1a1a;
+  --text-secondary: #4a4a4a;
+  --panel-bg: #f7f3e8;
+  --panel-bg-glass: rgba(247, 243, 232, 0.92);
+  --panel-border: rgba(184, 134, 11, 0.45);
+  --bg-gradient: radial-gradient(circle at 50% 30%, #e2efe0 0%, #c4dfc8 50%, #9cbfa3 100%);
+  --table-felt: radial-gradient(ellipse 90% 70% at 50% 50%, #228b69 0%, #1e7a5c 45%, #135841 85%, #0b3d2e 100%);
+  --gold-glow: rgba(184, 134, 11, 0.45);
+  --card-back-bg: linear-gradient(135deg, #1e7a5c 0%, #0b3d2e 60%, #062a1f 100%);
+  --card-back-border: #b8860b;
 }
 
 /* Tablet (min-width: 640px) */
 @media (min-width: 640px) {
   :root {
-    --card-w: clamp(80px, 12vw, 110px);
+    --card-w: clamp(70px, 10vw, 115px);
     --card-h: calc(var(--card-w) * 1.4);
-    --pile-card-w: clamp(104px, 18vmin, 150px);
+    --opp-card-w: clamp(34px, 5vw, 52px);
+    --opp-card-h: calc(var(--opp-card-w) * 1.4);
+    --pile-card-w: clamp(100px, 16vmin, 150px);
     --pile-card-h: calc(var(--pile-card-w) * 1.4);
-    --avatar-size: clamp(62px, 6vw, 86px);
+    --avatar: clamp(54px, 6vw, 84px);
   }
 }
 
 /* Desktop (min-width: 1024px) */
 @media (min-width: 1024px) {
   :root {
-    --card-w: clamp(90px, 8vw, 120px);
+    --card-w: clamp(80px, 7.5vw, 125px);
     --card-h: calc(var(--card-w) * 1.4);
-    --pile-card-w: clamp(115px, 15vmin, 160px);
+    --opp-card-w: clamp(38px, 3.8vw, 56px);
+    --opp-card-h: calc(var(--opp-card-w) * 1.4);
+    --pile-card-w: clamp(110px, 14vmin, 165px);
     --pile-card-h: calc(var(--pile-card-w) * 1.4);
-    --avatar-size: clamp(68px, 5.5vw, 92px);
+    --avatar: clamp(60px, 5.5vw, 88px);
   }
 }
 
 /* Mobile Landscape (Short Viewport Height <= 560px) */
 @media (orientation: landscape) and (max-height: 560px) {
   :root {
-    --card-w: clamp(54px, 13vh, 76px);
+    --card-w: clamp(48px, 12vh, 76px);
     --card-h: calc(var(--card-w) * 1.4);
-    --pile-card-w: clamp(72px, 20vh, 100px);
+    --opp-card-w: clamp(24px, 7vh, 38px);
+    --opp-card-h: calc(var(--opp-card-w) * 1.4);
+    --pile-card-w: clamp(68px, 19vh, 98px);
     --pile-card-h: calc(var(--pile-card-w) * 1.4);
-    --avatar-size: clamp(44px, 11vh, 60px);
+    --avatar: clamp(42px, 11vh, 58px);
   }
 }
 
@@ -58,7 +113,8 @@
   html,
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
-    background: linear-gradient(180deg, #0a0f2c 0%, #1b1440 36%, #0d1b3a 68%, #1a0f2b 100%);
+    background: var(--bg-gradient);
+    color: var(--text-primary);
     width: 100%;
     min-height: 100%;
     min-height: 100dvh;
@@ -69,6 +125,7 @@
     user-select: none;
     -webkit-user-select: none;
     -webkit-tap-highlight-color: transparent;
+    transition: background 200ms ease, color 200ms ease;
   }
 
   #root {
@@ -83,22 +140,21 @@
   h2,
   h3,
   .font-display {
-    font-family: 'Fredoka', system-ui, sans-serif;
+    font-family: 'Cinzel', 'Fredoka', serif;
   }
 }
 
-/* Part 10 & 11: Locked Game Viewport (Scoped only to active Game screen) */
+/* Part 21: Responsive Game Viewport (never position: fixed on root, always 100dvh) */
 .game-screen {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
+  position: relative;
+  width: 100%;
   height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
 }
 
-/* Part 15: Fullscreen Game Container */
+/* Fullscreen Game Container */
 .game-screen:fullscreen,
 .game-screen:-webkit-full-screen,
 .game-screen:-moz-full-screen,
@@ -106,13 +162,12 @@
   position: fixed !important;
   inset: 0 !important;
   width: 100vw !important;
-  height: 100vh !important;
   height: 100dvh !important;
-  background: linear-gradient(180deg, #0a0f2c 0%, #1b1440 36%, #0d1b3a 68%, #1a0f2b 100%) !important;
+  background: var(--bg-gradient) !important;
   overflow: hidden !important;
 }
 
-/* Safe-Area Viewport Container (Respects mobile notches & home indicator bars) */
+/* Safe-Area Viewport Container */
 .uno-safe-viewport {
   width: 100%;
   height: 100%;
@@ -127,7 +182,7 @@
   padding-right: max(1.5vw, env(safe-area-inset-right, 0px));
 }
 
-/* Part 12: Mobile Scrollable Lobby Layout with Sticky Action Footer */
+/* Scrollable Lobby Layout with Royal Casino Styling */
 .lobby-screen {
   width: 100%;
   height: 100dvh;
@@ -135,7 +190,8 @@
   flex-direction: column;
   overflow: hidden;
   position: relative;
-  background: radial-gradient(circle at 50% 25%, #1e1b4b 0%, #090d16 70%, #030712 100%);
+  background: var(--bg-gradient);
+  color: var(--text-primary);
 }
 
 .lobby-header {
@@ -275,7 +331,7 @@
 
 .hand-card-slot {
   flex: 0 0 auto;
-  margin-left: calc(var(--card-w) * -0.35);
+  margin-left: calc(var(--card-w, 80px) * -0.35);
   position: relative;
   transition: transform 0.18s ease-out, z-index 0.18s ease-out;
   touch-action: pan-x;
@@ -391,5 +447,57 @@
   .active-player-pulse {
     animation: none !important;
     transform: scale(1.05) !important;
+  }
+}
+
+/* Part 21: Enhanced Card Deck Highlighter with 4s diagonal shimmer sweep */
+@keyframes casino-card-shimmer {
+  0% {
+    transform: translateX(-160%) rotate(25deg);
+    opacity: 0;
+  }
+  12% {
+    opacity: 0.85;
+  }
+  30% {
+    transform: translateX(260%) rotate(25deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(260%) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+.casino-shimmer-sweep {
+  animation: casino-card-shimmer 4s ease-in-out infinite;
+}
+
+@keyframes gold-pulse-border {
+  0%, 100% {
+    box-shadow: 0 8px 24px var(--gold-glow), 0 0 0 3px var(--gold-light);
+  }
+  50% {
+    box-shadow: 0 12px 32px var(--gold-glow), 0 0 0 4px #ffe580;
+  }
+}
+
+.casino-playable-pulse {
+  animation: gold-pulse-border 2.2s ease-in-out infinite;
+}
+
+/* Dim unplayable cards (Issue 3) */
+.casino-card-unplayable {
+  opacity: 0.65 !important;
+  filter: grayscale(25%) !important;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .casino-shimmer-sweep {
+    animation: none !important;
+  }
+  .casino-playable-pulse {
+    animation: none !important;
   }
 }

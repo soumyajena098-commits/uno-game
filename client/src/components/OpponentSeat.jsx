@@ -202,6 +202,35 @@ function OpponentSeatComponent({
             {player.name}
           </p>
 
+          {/* Mini Face-Down Cards Fan (Max 4 mini cards overlapping) */}
+          {!player.finished && player.cardCount > 0 && (
+            <div className="flex items-center mt-0.5 select-none pointer-events-none" aria-hidden="true">
+              {Array.from({ length: Math.min(player.cardCount, 4) }).map((_, i) => (
+                <div
+                  key={i}
+                  style={{
+                    width: 'clamp(12px, 1.8vmin, 18px)',
+                    height: 'clamp(16px, 2.5vmin, 24px)',
+                    marginLeft: i === 0 ? 0 : 'clamp(-8px, -1.2vmin, -12px)',
+                    borderRadius: '3px',
+                    borderColor: 'var(--card-back-border, #d4af37)',
+                    background: 'var(--card-back-bg, #8b1a1a)',
+                    transform: `rotate(${(i - 1.5) * 6}deg)`,
+                    zIndex: i,
+                  }}
+                  className="border shadow-xs flex items-center justify-center shrink-0"
+                >
+                  <span className="text-[6px] font-black text-amber-200 opacity-80 leading-none">U</span>
+                </div>
+              ))}
+              {player.cardCount > 4 && (
+                <span className="text-[9px] font-black text-amber-300/80 ml-1 leading-none">
+                  +{player.cardCount - 4}
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Disconnected / AFK: small label below name (does not replace the pill) */}
           {!player.connected && !player.isBot && (
             <span className="text-[10px] text-rose-300 font-semibold tracking-wide">

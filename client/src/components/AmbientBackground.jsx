@@ -16,17 +16,18 @@ import { useGameStore } from '../store/useGameStore.js';
  */
 export default function AmbientBackground() {
   const reduceMotion = useGameStore((s) => s.reduceMotion);
+  const theme = useGameStore((s) => s.theme);
 
-  // Deterministic lightweight particles (22 particles max)
+  // Deterministic lightweight particles (capped at 15 for optimal mobile 60fps)
   const particles = useMemo(() => {
-    return Array.from({ length: 22 }, (_, i) => {
-      const left = ((i * 17 + 7) % 94) + 3; // 3% to 97%
-      const top = ((i * 23 + 13) % 90) + 5; // 5% to 95%
-      const size = 3 + ((i * 5) % 5); // 3px to 7px
-      const duration = 18 + ((i * 7) % 16); // 18s to 33s
-      const delay = -((i * 4) % 15); // Stagger start
-      const opacity = 0.04 + ((i * 3) % 5) * 0.01; // 0.04 to 0.08
-      const isWarm = i % 3 === 0;
+    return Array.from({ length: 15 }, (_, i) => {
+      const left = ((i * 19 + 7) % 92) + 4; // 4% to 96%
+      const top = ((i * 23 + 11) % 88) + 6; // 6% to 94%
+      const size = 3 + ((i * 4) % 4); // 3px to 6px
+      const duration = 20 + ((i * 7) % 14); // 20s to 34s
+      const delay = -((i * 5) % 15); // Stagger start
+      const opacity = 0.05 + ((i * 3) % 4) * 0.015; // 0.05 to 0.1
+      const isGold = i % 2 === 0;
 
       return {
         id: i,
@@ -36,7 +37,7 @@ export default function AmbientBackground() {
         duration: `${duration}s`,
         delay: `${delay}s`,
         opacity,
-        color: isWarm ? '#fbbf24' : i % 2 === 0 ? '#38bdf8' : '#a855f7',
+        color: isGold ? '#d4af37' : i % 3 === 0 ? '#10b981' : '#f0d97a',
       };
     });
   }, []);
@@ -44,46 +45,50 @@ export default function AmbientBackground() {
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0"
+      className="fixed inset-0 pointer-events-none overflow-hidden select-none z-0 transition-opacity duration-300"
     >
-      {/* 1. Deep Atmospheric Gradient Base Layer */}
+      {/* 1. Royal Casino Atmospheric Gradient Base Layer */}
       <div
         style={{
-          background: 'linear-gradient(180deg, #0a0f2c 0%, #1b1440 36%, #0d1b3a 68%, #1a0f2b 100%)',
+          background: 'var(--bg-gradient)',
+          transition: 'background 200ms ease',
         }}
         className="absolute inset-0"
       />
 
-      {/* 2. Soft Table Spotlight (Centered on Arena) */}
-      <div
-        style={{
-          background:
-            'radial-gradient(ellipse 72% 56% at 50% 42%, rgba(20, 80, 85, 0.2) 0%, rgba(88, 28, 135, 0.12) 42%, transparent 74%)',
-        }}
-        className="absolute inset-0"
-      />
-
-      {/* 3. Top-Center Subtle Indigo Glow */}
+      {/* 2. Soft Casino Table Spotlight (Emerald & Gold Arena Ambience) */}
       <div
         style={{
           background:
-            'radial-gradient(ellipse 60% 30% at 50% 0%, rgba(99, 102, 241, 0.12) 0%, transparent 60%)',
+            theme === 'light'
+              ? 'radial-gradient(ellipse 76% 58% at 50% 45%, rgba(30, 122, 92, 0.22) 0%, rgba(184, 134, 11, 0.12) 45%, transparent 75%)'
+              : 'radial-gradient(ellipse 76% 58% at 50% 45%, rgba(11, 61, 46, 0.35) 0%, rgba(212, 175, 55, 0.14) 45%, transparent 75%)',
+          transition: 'background 200ms ease',
         }}
         className="absolute inset-0"
       />
 
-      {/* 4. Bottom-Center Soft Warm Plum Glow */}
+      {/* 3. Top-Center Subtle Gold Trim Glow */}
       <div
         style={{
           background:
-            'radial-gradient(ellipse 60% 35% at 50% 100%, rgba(217, 70, 239, 0.09) 0%, transparent 65%)',
+            'radial-gradient(ellipse 65% 25% at 50% 0%, rgba(212, 175, 55, 0.15) 0%, transparent 65%)',
         }}
         className="absolute inset-0"
       />
 
-      {/* 5. Faint Corner UNO Decorative Outlines (Ultra-low opacity 0.035) */}
+      {/* 4. Bottom-Center Warm Felt Glow */}
+      <div
+        style={{
+          background:
+            'radial-gradient(ellipse 65% 30% at 50% 100%, rgba(11, 61, 46, 0.25) 0%, transparent 70%)',
+        }}
+        className="absolute inset-0"
+      />
+
+      {/* 5. Faint Corner UNO Decorative Outlines (Ultra-low opacity 0.04) */}
       <svg
-        className="absolute top-3 left-3 w-28 h-28 text-white/5 pointer-events-none"
+        className="absolute top-3 left-3 w-28 h-28 text-amber-300/10 pointer-events-none"
         viewBox="0 0 100 100"
         fill="none"
         stroke="currentColor"
@@ -93,7 +98,7 @@ export default function AmbientBackground() {
         <rect x="35" y="18" width="45" height="65" rx="8" transform="rotate(8 57 50)" />
       </svg>
       <svg
-        className="absolute bottom-3 right-3 w-32 h-32 text-amber-400/5 pointer-events-none"
+        className="absolute bottom-3 right-3 w-32 h-32 text-amber-400/10 pointer-events-none"
         viewBox="0 0 100 100"
         fill="none"
         stroke="currentColor"
@@ -103,7 +108,7 @@ export default function AmbientBackground() {
         <rect x="28" y="24" width="44" height="62" rx="7" transform="rotate(15 50 55)" />
       </svg>
 
-      {/* 6. Subtle GPU-Accelerated Floating Particles (Disabled on reduced motion) */}
+      {/* 6. Subtle GPU-Accelerated Floating Particles (Capped at 15; disabled on reduced motion) */}
       {!reduceMotion && (
         <div className="absolute inset-0 overflow-hidden">
           {particles.map((p) => (

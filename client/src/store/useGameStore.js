@@ -15,6 +15,30 @@ const SERVER_URL =
 // Ephemeral session-only player ID in memory (never stored in localStorage/sessionStorage)
 const IN_MEMORY_PLAYER_ID = `p_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 
+function getInitialTheme() {
+  if (typeof window === 'undefined') return 'dark';
+  const saved = localStorage.getItem('uno-theme');
+  if (saved === 'dark' || saved === 'light') return saved;
+  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    return 'light';
+  }
+  return 'dark'; // Default Royal Casino theme is dark
+}
+
+function applyThemeToDocument(theme) {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }
+}
+
+// Immediately apply on script load
+applyThemeToDocument(getInitialTheme());
+
 function formatCardPlayedText(card, activeColor) {
   if (!card) return '';
   const colorStr = (card.color || activeColor || '').toUpperCase();
@@ -35,7 +59,8 @@ export const useGameStore = create((set, get) => ({
   playerName: localStorage.getItem('uno_player_name') || '',
   soundEnabled: soundEngine.enabled,
 
-  // Accessibility & Visual Preferences
+  // Theme & Visual Preferences (Part 21 Royal Casino Dark / Light Mode)
+  theme: getInitialTheme(),
   colorBlindMode: localStorage.getItem('uno_colorblind') === 'true',
   reduceMotion: localStorage.getItem('uno_reducemotion') === 'true',
 
@@ -84,6 +109,18 @@ export const useGameStore = create((set, get) => ({
         },
       };
     });
+  },
+
+  setTheme: (theme) => {
+    const cleanTheme = theme === 'light' ? 'light' : 'dark';
+    localStorage.setItem('uno-theme', cleanTheme);
+    applyThemeToDocument(cleanTheme);
+    set({ theme: cleanTheme });
+  },
+
+  toggleTheme: () => {
+    const next = get().theme === 'dark' ? 'light' : 'dark';
+    get().setTheme(next);
   },
 
   toggleColorBlindMode: () => {

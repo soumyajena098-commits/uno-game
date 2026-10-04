@@ -66,7 +66,7 @@ export function RotateDeviceOverlay({ onContinueAnyway }) {
  */
 export function DirectionSwirl({ direction = 1 }) {
   return (
-    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
+    <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-[5]">
       {/* 500ms smooth flip container for SVG arc */}
       <motion.div
         animate={{ scaleX: direction === 1 ? 1 : -1 }}
@@ -259,18 +259,20 @@ export function UnoButton({ onCallUno, eligible, saidUno }) {
         width: 'clamp(80px, 9.5vw, 115px)',
         height: 'clamp(44px, 5.2vh, 56px)',
       }}
-      className={`uno-tap-target rounded-full border-2 border-white flex items-center justify-center shadow-2xl cursor-pointer transition select-none ${
+      className={`uno-tap-target rounded-full border-2 flex items-center justify-center shadow-2xl cursor-pointer transition select-none ${
         saidUno
-          ? 'bg-emerald-600 opacity-90 cursor-default'
+          ? 'bg-emerald-600 border-emerald-300 opacity-90 cursor-default'
           : eligible
-          ? 'bg-gradient-to-br from-red-500 via-rose-600 to-red-700 shadow-[0_0_30px_rgba(239,68,68,0.9)] animate-pulse'
-          : 'bg-gradient-to-br from-red-600 to-rose-800 opacity-90 hover:opacity-100 hover:scale-105'
+          ? 'bg-gradient-to-br from-red-600 via-rose-700 to-[#8b1a1a] border-amber-300 ring-4 ring-yellow-400/90 shadow-[0_0_36px_rgba(212,175,55,0.95)] animate-pulse'
+          : 'bg-gradient-to-br from-red-700 via-rose-800 to-[#5a0f0f] border-amber-400/60 opacity-90 hover:opacity-100 hover:scale-105 shadow-lg'
       }`}
       title={saidUno ? 'UNO Called!' : 'Call UNO!'}
     >
-      <div className="flex items-center gap-1 font-display font-black text-white text-base sm:text-lg tracking-wider drop-shadow-md">
-        <Flame className="w-4 h-4 fill-yellow-300 text-yellow-300" />
-        <span>{saidUno ? 'CALLED' : 'UNO!'}</span>
+      <div className="flex items-center gap-1 font-display font-black text-amber-200 text-base sm:text-lg tracking-wider drop-shadow-md">
+        <Flame className="w-4 h-4 fill-yellow-300 text-yellow-300 shrink-0" />
+        <span className="relative px-1 border border-amber-300/60 rounded-full font-black">
+          {saidUno ? 'CALLED' : 'UNO!'}
+        </span>
       </div>
     </motion.button>
   );

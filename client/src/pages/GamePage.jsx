@@ -36,6 +36,7 @@ import {
   SettingsButton,
   FullscreenButton,
 } from '../components/TableDecorations.jsx';
+import ThemeToggle from '../components/ThemeToggle.jsx';
 import AmbientBackground from '../components/AmbientBackground.jsx';
 import InGameNotificationBanner from '../components/InGameNotificationBanner.jsx';
 import CardCountPill from '../components/CardCountPill.jsx';
@@ -118,6 +119,33 @@ function formatCardName(card, activeColor) {
   if (card.type === 'wild') return `WILD (${activeColor?.toUpperCase() || 'COLOR'})`;
   if (card.type === 'wild4') return `WILD +4 (${activeColor?.toUpperCase() || 'COLOR'})`;
   return `${colorStr} ${card.type}`.trim();
+}
+
+function getUnplayableCardMessage(card, hand, gameState) {
+  if (!card || !gameState) return "Can't play this card right now.";
+  const topCard = gameState.topCard;
+  if (!topCard) return 'No active discard card.';
+  const activeColor = (gameState.activeColor || topCard.color || '').toUpperCase();
+
+  if (gameState.settings?.allowStacking && gameState.pendingDraw > 0) {
+    return `Must stack a ${topCard.type === 'draw2' ? '+2 or Wild +4' : 'Wild +4'} or draw cards!`;
+  }
+
+  if (card.type === 'wild4' && gameState.settings?.strictWild4 !== false) {
+    const hasMatchingColor = hand.some((c) => c.color === gameState.activeColor);
+    if (hasMatchingColor) {
+      return `Can't play Wild +4 while holding a ${activeColor} card!`;
+    }
+  }
+
+  const topValueStr =
+    topCard.type === 'number'
+      ? String(topCard.value)
+      : topCard.type === 'draw2'
+      ? '+2'
+      : topCard.type.toUpperCase();
+
+  return `Doesn't match — play a ${activeColor} or a ${topValueStr}`;
 }
 
 /**
@@ -285,6 +313,7 @@ export default function GamePage() {
     reduceMotion,
     toggleReduceMotion,
     addInGameNotification,
+    addToast,
   } = useGameStore();
 
   const gameContainerRef = useRef(null);
@@ -298,6 +327,7 @@ export default function GamePage() {
     return window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches;
   });
   const [dismissRotateOverlay, setDismissRotateOverlay] = useState(false);
+  const [, setViewportDimensions] = useState({ width: 0, height: 0 });
 
   // Auto-rotate screen to landscape on mobile game start (Part 14)
   useEffect(() => {
@@ -324,6 +354,28 @@ export default function GamePage() {
       } catch {
         // Ignore
       }
+    };
+  }, []);
+
+  // Part 21: ResizeObserver on game container so layout recalculates smoothly on all size changes
+  useEffect(() => {
+    if (!gameContainerRef.current || typeof ResizeObserver === 'undefined') return;
+    let resizeTimer = null;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          setViewportDimensions({ width: Math.round(width), height: Math.round(height) });
+          setIsPortraitMobile(height > width && width < 768);
+        }, 100);
+      }
+    });
+
+    observer.observe(gameContainerRef.current);
+    return () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      observer.disconnect();
     };
   }, []);
 
@@ -453,24 +505,54 @@ export default function GamePage() {
     return myHand.some((c) => isCardPlayableClient(c, myHand, gameState));
   }, [myHand, gameState]);
 
-  // Stable card click handler
+  // Identify the best playable card to subtly highlight with a star badge (Part 21 Issue 3)
+  const bestPlayableCardId = React.useMemo(() => {
+    if (!isMyTurn || me.finished) return null;
+    const playableCards = myHand.filter((c) => isCardPlayableClient(c, myHand, gameState));
+    if (playableCards.length === 0) return null;
+    const scoreCard = (c) => {
+      if (c.type === 'wild4') return 100;
+      if (c.type === 'draw2') return 90;
+      if (c.type === 'skip') return 80;
+      if (c.type === 'reverse') return 70;
+      if (c.type === 'number') return 20 + Number(c.value || 0);
+      return 10;
+    };
+    let best = playableCards[0];
+    let maxScore = scoreCard(best);
+    for (let i = 1; i < playableCards.length; i++) {
+      const score = scoreCard(playableCards[i]);
+      if (score > maxScore) {
+        best = playableCards[i];
+        maxScore = score;
+      }
+    }
+    return best.id;
+  }, [isMyTurn, me.finished, myHand, gameState]);
+
+  // Stable card click handler with unplayable guidance toast (Part 21 Issue 3)
   const handleCardClick = useCallback(
     (card) => {
-      if (!isMyTurn || me.finished) return;
+      if (!isMyTurn || me.finished) {
+        addToast('Wait for your turn to play', 'info');
+        return;
+      }
+
+      const legal = isCardPlayableClient(card, myHand, gameState);
+      if (!legal) {
+        const reason = getUnplayableCardMessage(card, myHand, gameState);
+        addToast(reason, 'warning');
+        return;
+      }
 
       if (card.type === 'wild' || card.type === 'wild4') {
-        const legal = isCardPlayableClient(card, myHand, gameState);
-        if (!legal) {
-          playCard(card.id);
-          return;
-        }
         setPendingWildCard(card);
         return;
       }
 
       playCard(card.id);
     },
-    [isMyTurn, me.finished, myHand, gameState, playCard, setPendingWildCard]
+    [isMyTurn, me.finished, myHand, gameState, playCard, setPendingWildCard, addToast]
   );
 
   // Desktop Keyboard Navigation
@@ -557,8 +639,17 @@ export default function GamePage() {
   const activeColorStyle =
     ACTIVE_COLOR_STYLES[gameState.activeColor] || ACTIVE_COLOR_STYLES.blue;
 
+  const resolvedTopCard =
+    gameState.topCard ||
+    (Array.isArray(gameState.discardPile) && gameState.discardPile.length > 0
+      ? gameState.discardPile[gameState.discardPile.length - 1]
+      : null) ||
+    (Array.isArray(gameState.recentDiscards) && gameState.recentDiscards.length > 0
+      ? gameState.recentDiscards[gameState.recentDiscards.length - 1]
+      : null);
+
   const isTopWild =
-    gameState.topCard?.type === 'wild' || gameState.topCard?.type === 'wild4';
+    resolvedTopCard?.type === 'wild' || resolvedTopCard?.type === 'wild4';
 
   const authoritativeEndsAt = gameState.endsAt || gameState.turnDeadline;
   const handMid = (myHand.length - 1) / 2;
@@ -608,9 +699,10 @@ export default function GamePage() {
           myHandCount={myHand.length}
         />
 
-        {/* Top-Right: Side-by-side Fullscreen (⛶) + Info (ℹ️) + Menu (☰) Buttons */}
-        <div className="relative flex items-center gap-2">
+        {/* Top-Right: Fullscreen (⛶) + Theme (☀️/🌙) + Info (ℹ️) + Menu (☰) Buttons */}
+        <div className="relative flex items-center gap-1.5 sm:gap-2">
           <FullscreenButton containerRef={gameContainerRef} />
+          <ThemeToggle />
           <button
             type="button"
             onClick={() => setShowInfoModal(true)}
@@ -734,18 +826,31 @@ export default function GamePage() {
 
       {/* Part 16: REAL TABLE ARENA WITH ELLIPTICAL SEATING */}
       <main className="relative flex-1 w-full h-full min-h-0 overflow-hidden">
-        {/* Subtle Elliptical Table Felt Backdrop */}
+        {/* Part 21: Royal Casino Elliptical Felt Table with Gold Ornamental Rim */}
         <div
           aria-hidden="true"
           style={{
-            width: 'min(94vw, 1060px)',
-            height: 'min(66vh, 520px)',
+            width: 'min(95vw, 1120px)',
+            height: 'min(70vh, 560px)',
             left: '50%',
             top: `${centerYPercent}%`,
             transform: 'translate(-50%, -50%)',
+            background: 'var(--table-felt)',
+            borderColor: 'var(--gold-primary)',
+            boxShadow:
+              '0 0 0 3px var(--felt-border), 0 0 0 7px rgba(212, 175, 55, 0.28), inset 0 0 90px rgba(0, 0, 0, 0.65), 0 24px 60px rgba(0, 0, 0, 0.75)',
           }}
-          className="absolute pointer-events-none rounded-[50%] bg-radial from-emerald-950/25 via-slate-900/45 to-slate-950/75 border border-emerald-500/20 shadow-[inset_0_0_90px_rgba(16,185,129,0.07),0_0_90px_rgba(0,0,0,0.65)]"
-        />
+          className="absolute pointer-events-none rounded-[50%] border-4 transition-all duration-300"
+        >
+          {/* Inner Gold Pinstripe Inlay */}
+          <div
+            style={{
+              inset: 'clamp(8px, 1.4vmin, 16px)',
+              borderColor: 'var(--gold-border)',
+            }}
+            className="absolute rounded-[50%] border border-dashed pointer-events-none opacity-40"
+          />
+        </div>
 
         {/* OPPONENTS SEATED AROUND TABLE PERIMETER (Clean Circles Only) */}
         {opponents.map((opp, idx) => {
@@ -793,7 +898,7 @@ export default function GamePage() {
             top: `${centerYPercent}%`,
             transform: 'translate(-50%, -50%)',
           }}
-          className="z-10 flex flex-col items-center justify-center pointer-events-auto"
+          className="z-20 flex flex-col items-center justify-center pointer-events-auto"
         >
           {/* Secondary "Next Turn" Callout just above Discard Pile (Part 18) */}
           <AnimatePresence>
@@ -838,7 +943,9 @@ export default function GamePage() {
                   disabled={!isMyTurn || me.finished}
                   onClick={() => isMyTurn && !me.finished && drawCard()}
                   className={
-                    isMyTurn && !me.finished
+                    isMyTurn && !me.finished && !hasPlayableCard
+                      ? 'ring-4 ring-amber-400 animate-pulse shadow-[0_0_36px_rgba(212,175,55,0.95)] hover:scale-105 cursor-pointer transition-all'
+                      : isMyTurn && !me.finished
                       ? 'ring-4 ring-emerald-400/85 shadow-[0_0_28px_rgba(16,185,129,0.65)] hover:scale-105 cursor-pointer transition-all'
                       : ''
                   }
@@ -861,7 +968,9 @@ export default function GamePage() {
                   fontSize: 'var(--font-xs)',
                 }}
                 className={`mt-1.5 rounded-xl font-bold transition flex items-center justify-center gap-1 ${
-                  isMyTurn && !me.finished
+                  isMyTurn && !me.finished && !hasPlayableCard
+                    ? 'bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black shadow-[0_0_24px_rgba(212,175,55,0.7)] animate-pulse cursor-pointer'
+                    : isMyTurn && !me.finished
                     ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow cursor-pointer'
                     : 'bg-slate-800/60 text-slate-500 cursor-not-allowed'
                 }`}
@@ -880,21 +989,35 @@ export default function GamePage() {
             <div className="flex flex-col items-center">
               <div
                 className={`relative p-0.5 rounded-2xl transition-all ${
-                  isTopWild ? activeColorStyle.glowRing : ''
+                  isTopWild
+                    ? activeColorStyle.glowRing
+                    : isMyTurn && !me.finished
+                    ? 'ring-4 ring-amber-400/90 shadow-[0_0_36px_rgba(212,175,55,0.85)]'
+                    : ''
                 }`}
               >
-                <AnimatePresence mode="popLayout">
-                  {gameState.topCard && (
-                    <motion.div
-                      key={gameState.topCard.id}
-                      initial={{ scale: 1.3, y: -20, rotate: -8, opacity: 0 }}
-                      animate={{ scale: 1.02, y: 0, rotate: 2, opacity: 1 }}
-                      transition={{ type: 'spring', stiffness: 280, damping: 20 }}
-                    >
-                      <UnoCard card={gameState.topCard} size="center" disabled />
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {resolvedTopCard ? (
+                  <motion.div
+                    key={resolvedTopCard.id || `${resolvedTopCard.color}-${resolvedTopCard.type}-${resolvedTopCard.value}`}
+                    initial={{ scale: 1.25, y: -16, rotate: -6, opacity: 0.8 }}
+                    animate={{ scale: 1.02, y: 0, rotate: 2, opacity: 1 }}
+                    transition={{ type: 'spring', stiffness: 280, damping: 20 }}
+                  >
+                    <UnoCard card={resolvedTopCard} size="center" disabled />
+                  </motion.div>
+                ) : (
+                  <div
+                    style={{
+                      width: 'var(--pile-card-w, var(--card-center-size, 110px))',
+                      aspectRatio: '1 / 1.4',
+                      borderRadius: 'calc(var(--pile-card-w, var(--card-center-size, 110px)) * 0.08)',
+                    }}
+                    className="border-2 border-dashed border-amber-400/40 bg-black/35 flex flex-col items-center justify-center text-amber-300/50 select-none shadow-inner"
+                  >
+                    <span className="font-display font-black text-xs tracking-wider opacity-75">UNO</span>
+                    <span className="text-[10px] font-bold text-amber-200/40 mt-0.5">DISCARD</span>
+                  </div>
+                )}
               </div>
               <span
                 style={{ fontSize: 'var(--font-xs)' }}
@@ -1099,7 +1222,7 @@ export default function GamePage() {
             left: '0',
             right: '0',
           }}
-          className="z-20 flex flex-col items-center pointer-events-none pb-1 sm:pb-2"
+          className="z-30 flex flex-col items-center pointer-events-none pb-1 sm:pb-2"
         >
           <div
             ref={handScrollRef}
@@ -1119,46 +1242,61 @@ export default function GamePage() {
                 🎉 Hand Empty — Finished 🏆 #{me.finishRank}!
               </div>
             ) : (
-              <div className="flex items-end min-w-full justify-start sm:justify-center px-4 shrink-0">
+              <div className="flex items-end justify-center min-w-max mx-auto px-4 shrink-0">
                 <AnimatePresence>
-                  {myHand.map((card, idx) => {
-                    const playable =
-                      isMyTurn && isCardPlayableClient(card, myHand, gameState);
-                    const offsetFromCenter = idx - handMid;
-                    const fanAngleDeg =
-                      myHand.length <= 12
-                        ? offsetFromCenter * 2.2
-                        : offsetFromCenter * 1.2;
-                    const archDropVmin = Math.min(
-                      1.5,
-                      Math.abs(offsetFromCenter) * 0.18
-                    );
+                  {(() => {
+                    const overlapRatio =
+                      myHand.length <= 4
+                        ? 0.22
+                        : myHand.length <= 7
+                        ? 0.35
+                        : myHand.length <= 10
+                        ? 0.46
+                        : myHand.length <= 14
+                        ? 0.54
+                        : 0.62;
 
-                    return (
-                      <div
-                        key={card.id}
-                        style={{
-                          marginLeft:
-                            idx === 0 ? '0px' : 'calc(var(--card-w) * -0.35)',
-                          transform: `translate3d(0, ${archDropVmin}vmin, 0) rotate(${fanAngleDeg}deg)`,
-                          zIndex: idx + 1,
-                          touchAction: 'pan-x',
-                        }}
-                        className="hand-card-slot shrink-0 transition-transform duration-200 hover:!z-30 snap-center"
-                      >
-                        <UnoCard
-                          card={card}
-                          size="md"
-                          playable={playable}
-                          focused={isMyTurn && focusedCardIndex === idx}
-                          disabled={!isMyTurn}
-                          onCardSelect={handleCardClick}
-                        />
-                      </div>
-                    );
-                  })}
+                    return myHand.map((card, idx) => {
+                      const playable =
+                        isMyTurn && isCardPlayableClient(card, myHand, gameState);
+                      const offsetFromCenter = idx - handMid;
+                      const fanAngleDeg =
+                        myHand.length <= 12
+                          ? offsetFromCenter * 2.2
+                          : offsetFromCenter * 1.2;
+                      const archDropVmin = Math.min(
+                        1.5,
+                        Math.abs(offsetFromCenter) * 0.18
+                      );
+
+                      return (
+                        <div
+                          key={card.id || `hand-${idx}`}
+                          style={{
+                            marginLeft:
+                              idx === 0
+                                ? '0px'
+                                : `calc(var(--card-w, 80px) * -${overlapRatio})`,
+                            transform: `translate3d(0, ${archDropVmin}vmin, 0) rotate(${fanAngleDeg}deg)`,
+                            zIndex: idx + 1,
+                            touchAction: 'pan-x',
+                          }}
+                          className="hand-card-slot shrink-0 transition-transform duration-200 hover:!z-30 snap-center"
+                        >
+                          <UnoCard
+                            card={card}
+                            size="md"
+                            playable={playable}
+                            isBestPlayable={card.id === bestPlayableCardId}
+                            focused={isMyTurn && focusedCardIndex === idx}
+                            disabled={!isMyTurn}
+                            onCardSelect={handleCardClick}
+                          />
+                        </div>
+                      );
+                    });
+                  })()}
                 </AnimatePresence>
-                <div className="w-6 shrink-0 pointer-events-none" aria-hidden="true" />
               </div>
             )}
           </div>

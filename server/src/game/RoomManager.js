@@ -1785,6 +1785,7 @@ export class RoomManager {
       drawPileCount: room.drawPile.length,
       discardPileCount: room.discardPile.length,
       topCard,
+      discardPile: room.discardPile,
       recentDiscards: room.discardPile.slice(-5),
       lastPlayedBy: room.lastPlayedBy,
       deckVerification: room.deckVerification,
