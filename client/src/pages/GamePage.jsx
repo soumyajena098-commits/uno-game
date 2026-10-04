@@ -327,7 +327,8 @@ export default function GamePage() {
     return window.matchMedia('(max-width: 767px) and (orientation: portrait)').matches;
   });
   const [dismissRotateOverlay, setDismissRotateOverlay] = useState(false);
-  const [, setViewportDimensions] = useState({ width: 0, height: 0 });
+  const [viewportDimensions, setViewportDimensions] = useState({ width: 0, height: 0 });
+  const [layoutStallWarning, setLayoutStallWarning] = useState(false);
 
   // Auto-rotate screen to landscape on mobile game start (Part 14)
   useEffect(() => {
@@ -357,25 +358,54 @@ export default function GamePage() {
     };
   }, []);
 
-  // Part 21: ResizeObserver on game container so layout recalculates smoothly on all size changes
+  // Part 21 & 23: ResizeObserver on game container with zero-size protection and layout stall watchdog
   useEffect(() => {
-    if (!gameContainerRef.current || typeof ResizeObserver === 'undefined') return;
-    let resizeTimer = null;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (resizeTimer) clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          setViewportDimensions({ width: Math.round(width), height: Math.round(height) });
-          setIsPortraitMobile(height > width && width < 768);
-        }, 100);
-      }
-    });
+    if (!gameContainerRef.current) return;
 
-    observer.observe(gameContainerRef.current);
+    const measureAndSet = (w, h) => {
+      if (w < 10 || h < 10) return; // Skip zero-size measurements before fonts/layout settle
+      const roundedW = Math.round(w);
+      const roundedH = Math.round(h);
+      setViewportDimensions({ width: roundedW, height: roundedH });
+      setIsPortraitMobile(roundedH > roundedW && roundedW < 768);
+    };
+
+    // Immediate initial measurement from getBoundingClientRect
+    const rect = gameContainerRef.current.getBoundingClientRect();
+    if (rect.width >= 10 && rect.height >= 10) {
+      measureAndSet(rect.width, rect.height);
+    }
+
+    const stallTimer = setTimeout(() => {
+      if (gameContainerRef.current) {
+        const r = gameContainerRef.current.getBoundingClientRect();
+        if (r.width < 50 || r.height < 50) {
+          console.warn('⚠️ Table area has zero size after 500ms. Applying fallback layout.');
+          setLayoutStallWarning(true);
+        }
+      }
+    }, 500);
+
+    let resizeTimer = null;
+    let observer = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const { width, height } = entry.contentRect;
+          if (width < 10 || height < 10) continue;
+          if (resizeTimer) clearTimeout(resizeTimer);
+          resizeTimer = setTimeout(() => {
+            measureAndSet(width, height);
+          }, 60);
+        }
+      });
+      observer.observe(gameContainerRef.current);
+    }
+
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
-      observer.disconnect();
+      clearTimeout(stallTimer);
+      if (observer) observer.disconnect();
     };
   }, []);
 
@@ -654,8 +684,19 @@ export default function GamePage() {
   const authoritativeEndsAt = gameState.endsAt || gameState.turnDeadline;
   const handMid = (myHand.length - 1) / 2;
 
+  // Part 23: Safe percentage coordinate helper to guarantee no NaN ever reaches inline styles
+  const safePct = useCallback((num, fallback = 50) => {
+    if (typeof num !== 'number' || !Number.isFinite(num)) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('⚠️ Invalid coordinate passed to safePct:', num);
+      }
+      return `${fallback}%`;
+    }
+    return `${Math.round(num * 100) / 100}%`;
+  }, []);
+
   // Center of table ellipse
-  const centerYPercent = isPortraitMobile ? 39 : 42;
+  const centerYPercent = Number.isFinite(isPortraitMobile ? 39 : 42) ? (isPortraitMobile ? 39 : 42) : 40;
   const rxPercent = isPortraitMobile
     ? 38
     : totalPlayers === 6
@@ -667,6 +708,36 @@ export default function GamePage() {
 
   // Local player sits at 90° (bottom-center): angle 90° in screen coords (+Y is down)
   const localPlayerSeatY = centerYPercent + ryPercent;
+
+  // Part 23: Log layout diagnostics on first render and on dimension changes
+  useEffect(() => {
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      (typeof window !== 'undefined' && window.location.search.includes('debug=1'))
+    ) {
+      const cardW =
+        typeof window !== 'undefined'
+          ? getComputedStyle(document.documentElement).getPropertyValue('--card-w')
+          : '';
+      const pileW =
+        typeof window !== 'undefined'
+          ? getComputedStyle(document.documentElement).getPropertyValue('--pile-card-w')
+          : '';
+      console.log('📐 [UNO Mobile Layout Diagnostics]', {
+        viewport: `${window.innerWidth}x${window.innerHeight}`,
+        isPortraitMobile,
+        containerW: viewportDimensions.width,
+        containerH: viewportDimensions.height,
+        cardWidthToken: cardW.trim() || 'unset',
+        pileCardWidthToken: pileW.trim() || 'unset',
+        handLength: myHand.length,
+        topCard: resolvedTopCard
+          ? `${resolvedTopCard.color} ${resolvedTopCard.value || resolvedTopCard.type}`
+          : 'NONE',
+        opponents: opponents.length,
+      });
+    }
+  }, [viewportDimensions, isPortraitMobile, resolvedTopCard, myHand.length, opponents.length]);
 
   return (
     <div ref={gameContainerRef} className="game-screen uno-safe-viewport select-none">
@@ -824,21 +895,22 @@ export default function GamePage() {
         </div>
       </header>
 
-      {/* Part 16: REAL TABLE ARENA WITH ELLIPTICAL SEATING */}
-      <main className="relative flex-1 w-full h-full min-h-0 overflow-hidden">
-        {/* Part 21: Royal Casino Elliptical Felt Table with Gold Ornamental Rim */}
+      {/* Part 16 & 23: REAL TABLE ARENA WITH ELLIPTICAL SEATING & ZERO-COLLAPSE TABLE-AREA */}
+      <main className="table-area relative flex-1 w-full min-h-0 min-w-0 overflow-hidden" style={{ minHeight: '380px' }}>
+        {/* Part 21 & 23: Royal Casino Elliptical Felt Table with Gold Ornamental Rim */}
         <div
           aria-hidden="true"
           style={{
             width: 'min(95vw, 1120px)',
-            height: 'min(70vh, 560px)',
-            left: '50%',
-            top: `${centerYPercent}%`,
+            height: isPortraitMobile ? 'min(50vh, 440px)' : 'min(70vh, 560px)',
+            left: safePct(50),
+            top: safePct(centerYPercent, 40),
             transform: 'translate(-50%, -50%)',
-            background: 'var(--table-felt)',
-            borderColor: 'var(--gold-primary)',
+            background:
+              'var(--table-felt, radial-gradient(ellipse 90% 70% at 50% 50%, #0d4a38 0%, #0b3d2e 45%, #062a1f 85%, #031711 100%))',
+            borderColor: 'var(--gold-primary, #d4af37)',
             boxShadow:
-              '0 0 0 3px var(--felt-border), 0 0 0 7px rgba(212, 175, 55, 0.28), inset 0 0 90px rgba(0, 0, 0, 0.65), 0 24px 60px rgba(0, 0, 0, 0.75)',
+              '0 0 0 3px var(--felt-border, rgba(212, 175, 55, 0.4)), 0 0 0 7px rgba(212, 175, 55, 0.28), inset 0 0 90px rgba(0, 0, 0, 0.65), 0 24px 60px rgba(0, 0, 0, 0.75)',
           }}
           className="absolute pointer-events-none rounded-[50%] border-4 transition-all duration-300"
         >
@@ -846,7 +918,7 @@ export default function GamePage() {
           <div
             style={{
               inset: 'clamp(8px, 1.4vmin, 16px)',
-              borderColor: 'var(--gold-border)',
+              borderColor: 'var(--gold-border, rgba(212, 175, 55, 0.35))',
             }}
             className="absolute rounded-[50%] border border-dashed pointer-events-none opacity-40"
           />
@@ -857,8 +929,10 @@ export default function GamePage() {
           const seatIndex = idx + 1; // 1 to totalPlayers - 1
           const angleDeg = 90 + (360 / totalPlayers) * seatIndex;
           const angleRad = (angleDeg * Math.PI) / 180;
-          const leftPct = 50 + Math.cos(angleRad) * rxPercent;
-          const topPct = centerYPercent + Math.sin(angleRad) * ryPercent;
+          const rawLeft = 50 + Math.cos(angleRad) * rxPercent;
+          const rawTop = centerYPercent + Math.sin(angleRad) * ryPercent;
+          const leftPct = safePct(rawLeft, 50);
+          const topPct = safePct(rawTop, 40);
 
           const isOpponentNext =
             !opp.finished &&
@@ -867,11 +941,11 @@ export default function GamePage() {
 
           return (
             <div
-              key={opp.id}
+              key={opp.id || `opp-${idx}`}
               style={{
                 position: 'absolute',
-                left: `${leftPct}%`,
-                top: `${topPct}%`,
+                left: leftPct,
+                top: topPct,
                 transform: 'translate(-50%, -50%)',
               }}
               className="z-20 pointer-events-auto"
@@ -894,8 +968,8 @@ export default function GamePage() {
         <div
           style={{
             position: 'absolute',
-            left: '50%',
-            top: `${centerYPercent}%`,
+            left: safePct(50),
+            top: safePct(centerYPercent, 40),
             transform: 'translate(-50%, -50%)',
           }}
           className="z-20 flex flex-col items-center justify-center pointer-events-auto"
@@ -1066,8 +1140,8 @@ export default function GamePage() {
         <div
           style={{
             position: 'absolute',
-            left: '50%',
-            top: `${localPlayerSeatY}%`,
+            left: safePct(50),
+            top: safePct(localPlayerSeatY, 66),
             transform: 'translate(-50%, -50%)',
           }}
           className={`z-20 flex items-center gap-2 pointer-events-auto select-none transition-all duration-300 ${
@@ -1221,6 +1295,7 @@ export default function GamePage() {
             bottom: '0',
             left: '0',
             right: '0',
+            minHeight: 'clamp(80px, 14vh, 140px)',
           }}
           className="z-30 flex flex-col items-center pointer-events-none pb-1 sm:pb-2"
         >
@@ -1400,6 +1475,42 @@ export default function GamePage() {
           <RotateDeviceOverlay onContinueAnyway={() => setDismissRotateOverlay(true)} />
         )}
       </AnimatePresence>
+
+      {/* Part 23: Layout Stall Fallback Watchdog Alert */}
+      {layoutStallWarning && (
+        <div
+          role="alert"
+          aria-live="polite"
+          className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-1.5 rounded-full bg-amber-500/95 text-slate-950 font-bold text-xs shadow-2xl backdrop-blur border border-amber-200 flex items-center gap-2"
+        >
+          <span>⚠️ Layout safeguard active</span>
+          <button
+            type="button"
+            onClick={() => setLayoutStallWarning(false)}
+            className="text-slate-950 font-black ml-1 hover:opacity-70 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Part 23: Runtime Diagnostic Overlay for Development and Testing */}
+      {(process.env.NODE_ENV !== 'production' ||
+        (typeof window !== 'undefined' && window.location.search.includes('debug=1'))) && (
+        <aside
+          data-testid="mobile-diagnostics-overlay"
+          aria-label="Mobile Layout Diagnostics"
+          className="fixed bottom-1 left-1 z-50 pointer-events-none bg-black/85 text-[10px] text-amber-300 font-mono px-2 py-1 rounded border border-amber-500/30 max-w-[240px] shadow-lg select-none"
+        >
+          <div>
+            Res: {viewportDimensions.width}x{viewportDimensions.height} (
+            {isPortraitMobile ? 'Portrait' : 'Landscape'})
+          </div>
+          <div>
+            Hand: {myHand.length} | Top: {resolvedTopCard?.color} {resolvedTopCard?.value}
+          </div>
+        </aside>
+      )}
     </div>
   );
 }

@@ -111,16 +111,30 @@
 
 @layer base {
   html,
+  body,
+  #root {
+    width: 100%;
+    width: 100vw;
+    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  html {
+    height: -webkit-fill-available;
+  }
+
   body {
+    min-height: 100vh;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: var(--bg-gradient);
     color: var(--text-primary);
-    width: 100%;
-    min-height: 100%;
-    min-height: 100dvh;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
     touch-action: manipulation;
     user-select: none;
     -webkit-user-select: none;
@@ -129,11 +143,9 @@
   }
 
   #root {
-    width: 100%;
-    min-height: 100%;
-    min-height: 100dvh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   h1,
@@ -144,14 +156,29 @@
   }
 }
 
-/* Part 21: Responsive Game Viewport (never position: fixed on root, always 100dvh) */
+/* Part 21 & 23: Responsive Game Viewport (never position: fixed on root, always triple height fallback) */
 .game-screen {
   position: relative;
   width: 100%;
+  height: 100%;
+  height: 100vh;
   height: 100dvh;
+  height: -webkit-fill-available;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
   overscroll-behavior: none;
   touch-action: manipulation;
+}
+
+/* Part 23: Table Area flex child guaranteed non-collapsing dimensions */
+.game-screen .table-area {
+  position: relative;
+  flex: 1 1 0%;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Fullscreen Game Container */
@@ -162,12 +189,15 @@
   position: fixed !important;
   inset: 0 !important;
   width: 100vw !important;
+  height: 100% !important;
+  height: 100vh !important;
   height: 100dvh !important;
+  height: -webkit-fill-available !important;
   background: var(--bg-gradient) !important;
   overflow: hidden !important;
 }
 
-/* Safe-Area Viewport Container */
+/* Safe-Area Viewport Container (Part 23: removed justify-content: space-between to prevent child displacement) */
 .uno-safe-viewport {
   width: 100%;
   height: 100%;
@@ -175,7 +205,6 @@
   overscroll-behavior: none;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
   padding-top: max(0.5vh, env(safe-area-inset-top, 0px));
   padding-bottom: max(0.5vh, env(safe-area-inset-bottom, 0px));
   padding-left: max(1.5vw, env(safe-area-inset-left, 0px));
